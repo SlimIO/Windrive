@@ -2,6 +2,7 @@ declare namespace WinDisk {
 
     export interface LogicalDrive {
         name: string;
+        bytesPerSect: number;
         driveType: number;
         freeClusters: number;
         totalClusters: number;

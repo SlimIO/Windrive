@@ -22,50 +22,53 @@ napi_value getLogicalDrives(napi_env env, napi_callback_info info) {
     TCHAR szBuffer[LogicalDriverLength];
     DWORD dwResult = GetLogicalDriveStrings(LogicalDriverLength, szBuffer);
 
-    if (dwResult > 0 && dwResult <= LogicalDriverLength) {
-        TCHAR *lpRootPathName = szBuffer;
-        unsigned int i = 0;
-        while (*lpRootPathName) {
-            DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
-            bool fResult = GetDiskFreeSpace(
-                lpRootPathName,
-                &dwSectPerClust,
-                &dwBytesPerSect,
-                &dwFreeClusters,
-                &dwTotalClusters
-            );
+    if (dwResult == 0 || dwResult > LogicalDriverLength) {
+        return JSInterfaceArray;
+    }
 
-            if(fResult && dwBytesPerSect != 0 ){
-                UINT driveType = GetDriveType(lpRootPathName);
+    TCHAR *lpRootPathName = szBuffer;
+    unsigned int i = 0;
+    while (*lpRootPathName) {
+        DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
+        bool fResult = GetDiskFreeSpace(
+            lpRootPathName,
+            &dwSectPerClust,
+            &dwBytesPerSect,
+            &dwFreeClusters,
+            &dwTotalClusters
+        );
 
-                CString driveName = CString(lpRootPathName);
-                double FreeClusters = (double) dwFreeClusters;
-                double TotalClusters = (double) dwTotalClusters;
-                double FreeClusterPourcent = (FreeClusters / TotalClusters) * 100;
+        if(fResult && dwBytesPerSect != 0 ){
+            UINT driveType = GetDriveType(lpRootPathName);
 
-                JavaScriptObject JSInterfaceObject(env);
+            CString driveName = CString(lpRootPathName);
+            double FreeClusters = (double) dwFreeClusters;
+            double TotalClusters = (double) dwTotalClusters;
+            double FreeClusterPourcent = (FreeClusters / TotalClusters) * 100;
 
-                /** Setup Properties */
-                JSInterfaceObject.addString("name", (char*) driveName.GetBuffer(driveName.GetLength()));
-                driveName.ReleaseBuffer();
-                JSInterfaceObject.addDouble("driveType", (double) driveType);
-                JSInterfaceObject.addDouble("freeClusters", FreeClusters);
-                JSInterfaceObject.addDouble("totalClusters", TotalClusters);
-                JSInterfaceObject.addDouble("usedClusterPourcent", 100 - FreeClusterPourcent);
-                JSInterfaceObject.addDouble("freeClusterPourcent", FreeClusterPourcent);
+            JavaScriptObject JSInterfaceObject(env);
 
-                /** Create array entry **/
-                napi_value index;
-                status = napi_create_int32(env, i, &index);
-                assert(status == napi_ok);
+            /** Setup Properties */
+            JSInterfaceObject.addString("name", (char*) driveName.GetBuffer(driveName.GetLength()));
+            driveName.ReleaseBuffer();
+            JSInterfaceObject.addDouble("driveType", (double) driveType);
+            JSInterfaceObject.addDouble("bytesPerSect", (double) dwBytesPerSect);
+            JSInterfaceObject.addDouble("freeClusters", FreeClusters);
+            JSInterfaceObject.addDouble("totalClusters", TotalClusters);
+            JSInterfaceObject.addDouble("usedClusterPourcent", 100 - FreeClusterPourcent);
+            JSInterfaceObject.addDouble("freeClusterPourcent", FreeClusterPourcent);
 
-                status = napi_set_property(env, JSInterfaceArray, index, JSInterfaceObject.getSelf());
-                assert(status == napi_ok);
-            }
-    
-            lpRootPathName = &lpRootPathName[_tcslen(lpRootPathName) + 1];
-            i++;
+            /** Create array entry **/
+            napi_value index;
+            status = napi_create_int32(env, i, &index);
+            assert(status == napi_ok);
+
+            status = napi_set_property(env, JSInterfaceArray, index, JSInterfaceObject.getSelf());
+            assert(status == napi_ok);
         }
+
+        lpRootPathName = &lpRootPathName[_tcslen(lpRootPathName) + 1];
+        i++;
     }
 
     return JSInterfaceArray;

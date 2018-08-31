@@ -18,5 +18,5 @@ console.timeEnd("getLogicalDrives");
 
 for (const disk of logicalDrives) {
     Reflect.set(disk, 'driveTypeName', driveTypeName[disk.driveType]);
-    console.log(disk);
+    console.log(JSON.stringify(disk, null, 4));
 }
