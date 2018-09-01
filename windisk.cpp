@@ -24,6 +24,17 @@ Array getLogicalDrives(const CallbackInfo& info) {
     unsigned int i = 0;
     while (*lpRootPathName) {
 
+        // Setup JavaScript Object
+        Object drive = Object::New(env);
+        ret[i] = drive;
+
+        drive.Set("name", lpRootPathName);
+
+        // Retrieve Drive Type
+        UINT driveType = GetDriveType(lpRootPathName);
+
+        drive.Set("driveType", (double) driveType);
+
         // Retrieve Drive Free Space
         DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
         bool fResult = GetDiskFreeSpace(
@@ -35,26 +46,16 @@ Array getLogicalDrives(const CallbackInfo& info) {
         );
 
         if(fResult && dwBytesPerSect != 0 ){
-            // Retrieve Drive Type
-            UINT driveType = GetDriveType(lpRootPathName);
-
             // Convert to double and Calcule FreeClusterPourcent
             double FreeClusters = (double) dwFreeClusters;
             double TotalClusters = (double) dwTotalClusters;
             double FreeClusterPourcent = (FreeClusters / TotalClusters) * 100;
 
-            // Setup JavaScript Object
-            Object drive = Object::New(env);
-
-            drive.Set("name", lpRootPathName);
-            drive.Set("driveType", (double) driveType);
             drive.Set("bytesPerSect", (double) dwBytesPerSect);
             drive.Set("freeClusters", FreeClusters);
             drive.Set("totalClusters", TotalClusters);
             drive.Set("usedClusterPourcent", 100 - FreeClusterPourcent);
             drive.Set("freeClusterPourcent", FreeClusterPourcent);
-
-            ret[i] = drive;
         }
 
         lpRootPathName += strlen((const char*) lpRootPathName) + 1;
