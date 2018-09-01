@@ -22,5 +22,6 @@ for (const disk of logicalDrives) {
         'driveTypeName',
         driveTypeName[disk.driveType]
     );
-    console.log(JSON.stringify(disk, null, 4));
 }
+
+console.log(logicalDrives);
