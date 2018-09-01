@@ -1,34 +1,31 @@
 #include "afxcoll.h"
 #include <windows.h>
-#include <string>
-#include <iostream>
-#include "JavaScriptObject.h"
-#include "node_api.h"
-#include "assert.h"
-using namespace std;
+#include "napi.h"
+using namespace Napi;
 
-#define LogicalDriverLength 150
-#define DECLARE_NAPI_METHOD(name, func)                          \
-  { name, 0, func, 0, 0, 0, napi_default, 0 }
+#define DRIVER_LENGTH 150
 
-napi_value getLogicalDrives(napi_env env, napi_callback_info info) {
-    napi_status status;
+/*
+ * Retrieve Windows Logical Drives (with Drive type & Free spaces).
+ */
+Array getLogicalDrives(const CallbackInfo& info) {
+    Env env = info.Env();
 
-    // Create JavaScript Array
-    napi_value JSInterfaceArray;
-    status = napi_create_array(env, &JSInterfaceArray);
-    assert(status == napi_ok);
+    // Retrieve Logicial Drives
+    TCHAR szBuffer[DRIVER_LENGTH];
+    DWORD dwResult = GetLogicalDriveStrings(DRIVER_LENGTH, szBuffer);
 
-    TCHAR szBuffer[LogicalDriverLength];
-    DWORD dwResult = GetLogicalDriveStrings(LogicalDriverLength, szBuffer);
-
-    if (dwResult == 0 || dwResult > LogicalDriverLength) {
-        return JSInterfaceArray;
+    // Throw error if we fail to retrieve result
+    if (dwResult == 0 || dwResult > DRIVER_LENGTH) {
+        throw Error::New(env, "Failed to retrieve LogicalDrive!");
     }
+    Array ret = Array::New(env);
 
     TCHAR *lpRootPathName = szBuffer;
     unsigned int i = 0;
     while (*lpRootPathName) {
+
+        // Retrieve Drive Free Space
         DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
         bool fResult = GetDiskFreeSpace(
             lpRootPathName,
@@ -39,49 +36,42 @@ napi_value getLogicalDrives(napi_env env, napi_callback_info info) {
         );
 
         if(fResult && dwBytesPerSect != 0 ){
+            // Retrieve Drive Type
             UINT driveType = GetDriveType(lpRootPathName);
 
-            CString driveName = CString(lpRootPathName);
+            // Convert to double and Calcule FreeClusterPourcent
             double FreeClusters = (double) dwFreeClusters;
             double TotalClusters = (double) dwTotalClusters;
             double FreeClusterPourcent = (FreeClusters / TotalClusters) * 100;
 
-            JavaScriptObject JSInterfaceObject(env);
+            // Setup JavaScript Object
+            Object drive = Object::New(env);
 
-            /** Setup Properties */
-            JSInterfaceObject.addString("name", (char*) driveName.GetBuffer(driveName.GetLength()));
-            driveName.ReleaseBuffer();
-            JSInterfaceObject.addDouble("driveType", (double) driveType);
-            JSInterfaceObject.addDouble("bytesPerSect", (double) dwBytesPerSect);
-            JSInterfaceObject.addDouble("freeClusters", FreeClusters);
-            JSInterfaceObject.addDouble("totalClusters", TotalClusters);
-            JSInterfaceObject.addDouble("usedClusterPourcent", 100 - FreeClusterPourcent);
-            JSInterfaceObject.addDouble("freeClusterPourcent", FreeClusterPourcent);
+            drive.Set("name", lpRootPathName);
+            drive.Set("driveType", (double) driveType);
+            drive.Set("bytesPerSect", (double) dwBytesPerSect);
+            drive.Set("freeClusters", FreeClusters);
+            drive.Set("totalClusters", TotalClusters);
+            drive.Set("usedClusterPourcent", 100 - FreeClusterPourcent);
+            drive.Set("freeClusterPourcent", FreeClusterPourcent);
 
-            /** Create array entry **/
-            napi_value index;
-            status = napi_create_int32(env, i, &index);
-            assert(status == napi_ok);
-
-            status = napi_set_property(env, JSInterfaceArray, index, JSInterfaceObject.getSelf());
-            assert(status == napi_ok);
+            ret[i] = drive;
         }
 
         lpRootPathName = &lpRootPathName[_tcslen(lpRootPathName) + 1];
         i++;
     }
 
-    return JSInterfaceArray;
+    return ret;
 }
 
-napi_value Init(napi_env env, napi_value exports) {
-    napi_property_descriptor desc[] = {
-        DECLARE_NAPI_METHOD("getLogicalDrives", getLogicalDrives)
-    };
-    napi_status status = napi_define_properties(env, exports, sizeof(desc) / sizeof(*desc), desc);
-    assert(status == napi_ok);
+// Initialize Native Addon
+Object Init(Env env, Object exports) {
+    // Setup methods
+    exports.Set("getLogicalDrives", Function::New(env, getLogicalDrives));
 
     return exports;
 }
 
-NAPI_MODULE(NODE_GYP_MODULE_NAME, Init)
+// Export
+NODE_API_MODULE(windisk, Init)
