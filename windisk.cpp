@@ -1,4 +1,3 @@
-#include "afxcoll.h" // TODO: Remove this header
 #include <windows.h>
 #include "napi.h"
 using namespace Napi;
@@ -58,8 +57,7 @@ Array getLogicalDrives(const CallbackInfo& info) {
             ret[i] = drive;
         }
 
-        // TODO: Replace _tsclen by something out of afxcoll.h
-        lpRootPathName += _tcslen(lpRootPathName) + 1;
+        lpRootPathName += strlen((const char*) lpRootPathName) + 1;
         i++;
     }
 
