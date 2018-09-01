@@ -58,7 +58,7 @@ Array getLogicalDrives(const CallbackInfo& info) {
             ret[i] = drive;
         }
 
-        lpRootPathName = &lpRootPathName[_tcslen(lpRootPathName) + 1];
+        lpRootPathName += _tcslen(lpRootPathName) + 1;
         i++;
     }
 

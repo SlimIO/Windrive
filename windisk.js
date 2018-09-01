@@ -17,6 +17,10 @@ const logicalDrives = windisk.getLogicalDrives();
 console.timeEnd("getLogicalDrives"); 
 
 for (const disk of logicalDrives) {
-    Reflect.set(disk, 'driveTypeName', driveTypeName[disk.driveType]);
+    Reflect.set(
+        disk,
+        'driveTypeName',
+        driveTypeName[disk.driveType]
+    );
     console.log(JSON.stringify(disk, null, 4));
 }
