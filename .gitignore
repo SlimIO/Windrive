@@ -63,3 +63,4 @@ typings/
 build
 .exe
 .obj
+.vscode
