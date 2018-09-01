@@ -1,7 +1,12 @@
 # WinDisk
 Windows Disk low level binding
 
-# Todo
+## Work
+
+- Prepare npm package (export with bindings).
+- Add prebuilt (prebuildify)
+
+## Missing metrics
 
 - Disk IRQ ?
 - Op queue ?
