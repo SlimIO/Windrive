@@ -2,6 +2,10 @@
 #include "napi.h"
 using namespace Napi;
 
+/*
+ * Buffer length for logical drives names
+ * TODO: Best value ?
+ */
 #define DRIVER_LENGTH 150
 
 /*
@@ -16,8 +20,10 @@ Array getLogicalDrives(const CallbackInfo& info) {
 
     // Throw error if we fail to retrieve result
     if (dwResult == 0 || dwResult > DRIVER_LENGTH) {
-        throw Error::New(env, "Failed to retrieve LogicalDrive!");
+        throw Error::New(env, "Failed to retrieve logical drives names!");
     }
+
+    // TODO: Find Array size with dwResult ?
     Array ret = Array::New(env);
 
     TCHAR *lpRootPathName = szBuffer;
@@ -45,7 +51,7 @@ Array getLogicalDrives(const CallbackInfo& info) {
             &dwTotalClusters
         );
 
-        if(fResult && dwBytesPerSect != 0 ){
+        if(fResult && dwBytesPerSect != 0) {
             // Convert to double and Calcule FreeClusterPourcent
             double FreeClusters = (double) dwFreeClusters;
             double TotalClusters = (double) dwTotalClusters;
@@ -67,7 +73,9 @@ Array getLogicalDrives(const CallbackInfo& info) {
 
 // Initialize Native Addon
 Object Init(Env env, Object exports) {
+
     // Setup methods
+    // TODO: Launch with AsyncWorker to avoid event loop starvation
     exports.Set("getLogicalDrives", Function::New(env, getLogicalDrives));
 
     return exports;
