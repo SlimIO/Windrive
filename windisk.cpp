@@ -1,4 +1,6 @@
 #include <windows.h>
+#include <winioctl.h>
+#include <stdio.h>
 #include "napi.h"
 using namespace Napi;
 
@@ -71,12 +73,90 @@ Array getLogicalDrives(const CallbackInfo& info) {
     return ret;
 }
 
+/*
+ * Retrieve Disk Performance
+ */
+bool GetDiskPerformance(LPWSTR wszPath, DISK_PERFORMANCE *pdg) {
+    HANDLE hDevice = INVALID_HANDLE_VALUE;  // handle to the drive to be examined 
+    bool bResult   = FALSE;                 // results flag
+    DWORD junk     = 0;                     // discard results
+
+    hDevice = CreateFileW(wszPath,          // drive to open
+                        0,                // no access to the drive
+                        FILE_SHARE_READ | // share mode
+                        FILE_SHARE_WRITE, 
+                        NULL,             // default security attributes
+                        OPEN_EXISTING,    // disposition
+                        0,                // file attributes
+                        NULL);            // do not copy file attributes
+
+    // cannot open the drive
+    if (hDevice == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    bResult = DeviceIoControl(hDevice,                       // device to be queried
+                        IOCTL_DISK_PERFORMANCE, // operation to perform
+                        NULL, 0,                       // no input buffer
+                        pdg, sizeof(*pdg),            // output buffer
+                        &junk,                         // # bytes returned
+                        (LPOVERLAPPED) NULL);          // synchronous I/O
+    CloseHandle(hDevice);
+
+    return bResult;
+}
+
+/*
+ * Binding for retrieving drive performance
+ */
+Value getDrivePerformance(const CallbackInfo& info) {
+    Env env = info.Env();
+
+    // Check argument length!
+    if (info.Length() < 1) {
+        throw Error::New(env, "Wrong number of argument provided!");
+
+        return env.Null();
+    }
+
+    // DriveName should be typeof string
+    if (!info[0].IsString()) {
+        throw Error::New(env, "argument driveName should be typeof string!");
+
+        return env.Null();
+    }
+
+    // const char16_t driveName = *info[0].As<String>().Utf16Value().c_str();
+    LPWSTR wszDrive = L"\\\\.\\C:";
+    wprintf(L"Drive path      = %ws\n",   wszDrive);
+
+    DISK_PERFORMANCE pdg = { 0 };
+
+    bool bResult = GetDiskPerformance(wszDrive, &pdg);
+    if (!bResult) {
+        throw Error::New(env, "Failed to retrieve drive performance !");
+
+        return env.Null();
+    }
+
+    Object ret = Object::New(env);
+
+    ret.Set("idleTimeHigh", Number::New(env, pdg.IdleTime.HighPart));
+    ret.Set("idleTimeLow", Number::New(env, pdg.IdleTime.LowPart));
+    ret.Set("readCount", (double) pdg.ReadCount);
+    ret.Set("writeCount", (double) pdg.WriteCount);
+    ret.Set("queueDepth", (double) pdg.QueueDepth);
+
+    return ret;
+}
+
 // Initialize Native Addon
 Object Init(Env env, Object exports) {
 
     // Setup methods
     // TODO: Launch with AsyncWorker to avoid event loop starvation
     exports.Set("getLogicalDrives", Function::New(env, getLogicalDrives));
+    exports.Set("getDrivePerformance", Function::New(env, getDrivePerformance));
 
     return exports;
 }

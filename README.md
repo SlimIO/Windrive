@@ -5,6 +5,8 @@ Windows Disk low level binding
 
 - Prepare npm package (export with bindings).
 - Add prebuilt (prebuildify)
+- Retrieve all devices with QueryDosDevice
+- Finish getDeviceGeometry
 
 ## Missing metrics
 
