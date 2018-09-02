@@ -23,9 +23,20 @@ const dosDevices = windisk.getDosDevices();
 console.timeEnd("getDosDevices");
 // console.log(JSON.stringify(dosDevices, null, 4));
 
+const isDisk = /^[A-Za-z]{1}:{1}$/;
+const isPhysicalDrive = /^PhysicalDrive[0-9]+$/;
+function isStrPhysicalDrive(driveNameStr) {
+    if (isDisk.test(driveNameStr) || isPhysicalDrive.test(driveNameStr)) {
+        return true;
+    }
+    return false;
+}
+
+const filtered = Object.keys(dosDevices).filter(isStrPhysicalDrive);
 async function main() {
-    for (const deviceName of Object.keys(dosDevices)) {
-        console.log(`deviceName: ${deviceName}\n`);
+    for (const deviceName of filtered) {
+        console.log(`\ndeviceName: ${deviceName}`);
+        console.log(`path: ${dosDevices[deviceName]}`);
         const perf = windisk.getDevicePerformance(deviceName);
         console.log(perf);
         await sleep(500);
