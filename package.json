@@ -1,8 +1,8 @@
 {
-  "name": "@slimio/windisk",
+  "name": "@slimio/windrive",
   "version": "1.0.0",
-  "description": "Windows Disk low level binding",
-  "main": "windisk.js",
+  "description": "Windows Drive (disk) & Devices low level binding",
+  "main": "index.js",
   "dependencies": {
     "node-addon-api": "^1.4.0"
   },

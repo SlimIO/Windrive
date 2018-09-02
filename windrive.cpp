@@ -198,4 +198,4 @@ Object Init(Env env, Object exports) {
 }
 
 // Export
-NODE_API_MODULE(windisk, Init)
+NODE_API_MODULE(windrive, Init)

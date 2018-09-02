@@ -1,9 +1,9 @@
 {
     "targets": [
         {
-            "target_name": "windisk",
+            "target_name": "windrive",
             "sources": [
-                "windisk.cpp"
+                "windrive.cpp"
             ],
             "include_dirs": [
                 "include",

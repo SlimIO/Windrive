@@ -1,5 +1,5 @@
-/** @type {WinDisk} */
-const windisk = require("./build/Release/windisk.node");
+/** @type {Windrive} */
+const windisk = require("./build/Release/windrive.node");
 
 /** @type {String[]} */
 const driveTypeName = [

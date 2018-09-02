@@ -1,4 +1,4 @@
-declare namespace WinDisk {
+declare namespace Windrive {
 
     export interface LogicalDrive {
         name: string;
@@ -44,5 +44,5 @@ declare namespace WinDisk {
     export function getDosDevices(): DosDevices;
 }
 
-export as namespace WinDisk;
-export = WinDisk;
+export as namespace Windrive;
+export = Windrive;
