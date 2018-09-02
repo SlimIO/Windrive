@@ -1,7 +1,7 @@
 # WinDisk
 Windows Disk low level binding
 
-## Requirements
+## Requirement
 
 - Windows build tools
 - Node-gyp
