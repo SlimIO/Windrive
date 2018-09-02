@@ -1,7 +1,9 @@
 #include <windows.h>
-#include <winioctl.h>
-#include <stdio.h>
+#include <comdef.h>
+#include <sstream>
+#include <string>
 #include "napi.h"
+using namespace std;
 using namespace Napi;
 
 /*
@@ -13,7 +15,7 @@ using namespace Napi;
 /*
  * Retrieve Windows Logical Drives (with Drive type & Free spaces).
  */
-Array getLogicalDrives(const CallbackInfo& info) {
+Value getLogicalDrives(const CallbackInfo& info) {
     Env env = info.Env();
 
     // Retrieve Logicial Drives
@@ -22,7 +24,9 @@ Array getLogicalDrives(const CallbackInfo& info) {
 
     // Throw error if we fail to retrieve result
     if (dwResult == 0 || dwResult > DRIVER_LENGTH) {
-        throw Error::New(env, "Failed to retrieve logical drives names!");
+        Error::New(env, "Failed to retrieve logical drives names!").ThrowAsJavaScriptException();
+
+        return env.Null();
     }
 
     // TODO: Find Array size with dwResult ?
@@ -76,31 +80,31 @@ Array getLogicalDrives(const CallbackInfo& info) {
 /*
  * Retrieve Disk Performance
  */
-bool GetDiskPerformance(LPWSTR wszPath, DISK_PERFORMANCE *pdg) {
+bool GetDiskPerformance(LPCSTR wszPath, DISK_PERFORMANCE *pdg) {
     HANDLE hDevice = INVALID_HANDLE_VALUE;  // handle to the drive to be examined 
     bool bResult   = FALSE;                 // results flag
     DWORD junk     = 0;                     // discard results
 
-    hDevice = CreateFileW(wszPath,          // drive to open
-                        0,                // no access to the drive
-                        FILE_SHARE_READ | // share mode
+    hDevice = CreateFileA(wszPath,          // drive to open
+                        0,                  // no access to the drive
+                        FILE_SHARE_READ |   // share mode
                         FILE_SHARE_WRITE, 
-                        NULL,             // default security attributes
-                        OPEN_EXISTING,    // disposition
-                        0,                // file attributes
-                        NULL);            // do not copy file attributes
+                        NULL,               // default security attributes
+                        OPEN_EXISTING,      // disposition
+                        0,                  // file attributes
+                        NULL);              // do not copy file attributes
 
     // cannot open the drive
     if (hDevice == INVALID_HANDLE_VALUE) {
         return false;
     }
 
-    bResult = DeviceIoControl(hDevice,                       // device to be queried
-                        IOCTL_DISK_PERFORMANCE, // operation to perform
-                        NULL, 0,                       // no input buffer
-                        pdg, sizeof(*pdg),            // output buffer
-                        &junk,                         // # bytes returned
-                        (LPOVERLAPPED) NULL);          // synchronous I/O
+    bResult = DeviceIoControl(hDevice,               // device to be queried
+                        IOCTL_DISK_PERFORMANCE,      // operation to perform
+                        NULL, 0,                     // no input buffer
+                        pdg, sizeof(*pdg),           // output buffer
+                        &junk,                       // # bytes returned
+                        (LPOVERLAPPED) NULL);        // synchronous I/O
     CloseHandle(hDevice);
 
     return bResult;
@@ -109,43 +113,55 @@ bool GetDiskPerformance(LPWSTR wszPath, DISK_PERFORMANCE *pdg) {
 /*
  * Binding for retrieving drive performance
  */
-Value getDrivePerformance(const CallbackInfo& info) {
+Value getDevicePerformance(const CallbackInfo& info) {
     Env env = info.Env();
 
     // Check argument length!
     if (info.Length() < 1) {
-        throw Error::New(env, "Wrong number of argument provided!");
+        Error::New(env, "Wrong number of argument provided!").ThrowAsJavaScriptException();
 
         return env.Null();
     }
 
     // DriveName should be typeof string
     if (!info[0].IsString()) {
-        throw Error::New(env, "argument driveName should be typeof string!");
+        Error::New(env, "argument driveName should be typeof string!").ThrowAsJavaScriptException();
 
         return env.Null();
     }
 
-    // const char16_t driveName = *info[0].As<String>().Utf16Value().c_str();
-    LPWSTR wszDrive = L"\\\\.\\C:";
-    wprintf(L"Drive path      = %ws\n",   wszDrive);
+    // Retrieve Device complete name!
+    string driveName = info[0].As<String>().Utf8Value();
+    std::stringstream ss;
+    ss << "\\\\.\\" << driveName;
+    string tDriveName = ss.str();
+    LPCSTR wszDrive = tDriveName.c_str();
 
     DISK_PERFORMANCE pdg = { 0 };
 
+    // Get Disk Performance
     bool bResult = GetDiskPerformance(wszDrive, &pdg);
     if (!bResult) {
-        throw Error::New(env, "Failed to retrieve drive performance !");
+        Error::New(env, "Failed to retrieve drive performance !").ThrowAsJavaScriptException();
 
         return env.Null();
     }
 
+    // Setup JavaScript Object
     Object ret = Object::New(env);
-
-    ret.Set("idleTimeHigh", Number::New(env, pdg.IdleTime.HighPart));
-    ret.Set("idleTimeLow", Number::New(env, pdg.IdleTime.LowPart));
-    ret.Set("readCount", (double) pdg.ReadCount);
-    ret.Set("writeCount", (double) pdg.WriteCount);
-    ret.Set("queueDepth", (double) pdg.QueueDepth);
+    ret.Set("bytesRead", pdg.BytesRead.QuadPart);
+    ret.Set("bytesWritten", pdg.BytesWritten.QuadPart);
+    ret.Set("readTime", pdg.ReadTime.QuadPart);
+    ret.Set("writeTime", pdg.WriteTime.QuadPart);
+    ret.Set("idleTime", pdg.IdleTime.QuadPart);
+    ret.Set("readCount", pdg.ReadCount);
+    ret.Set("writeCount", pdg.WriteCount);
+    ret.Set("queueDepth", pdg.QueueDepth);
+    ret.Set("splitCount", pdg.SplitCount);
+    ret.Set("queryTime", pdg.QueryTime.QuadPart);
+    ret.Set("storageDeviceNumber", pdg.StorageDeviceNumber);
+    _bstr_t charStorageManagerName(pdg.StorageManagerName);
+    ret.Set("storageManagerName", (const char*) charStorageManagerName);
 
     return ret;
 }
@@ -156,7 +172,7 @@ Object Init(Env env, Object exports) {
     // Setup methods
     // TODO: Launch with AsyncWorker to avoid event loop starvation
     exports.Set("getLogicalDrives", Function::New(env, getLogicalDrives));
-    exports.Set("getDrivePerformance", Function::New(env, getDrivePerformance));
+    exports.Set("getDevicePerformance", Function::New(env, getDevicePerformance));
 
     return exports;
 }

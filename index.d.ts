@@ -10,12 +10,19 @@ declare namespace WinDisk {
         freeClusterPourcent: number;
     }
 
-    export interface DrivePerformance {
-        idleTimeHigh: number;
-        idleTimeLow: number;
+    export interface DevicePerformance {
+        bytesRead: number;
+        bytesWritten: number;
+        readTime: number;
+        writeTime: number;
+        idleTime: number;
         readCount: number;
         writeCount: number;
         queueDepth: number;
+        splitCount: number;
+        queryTime: number;
+        storageDeviceNumber: number;
+        storageManagerName: string;
     }
 
     export enum DriveType {
@@ -29,7 +36,7 @@ declare namespace WinDisk {
     }
 
     export function getLogicalDrives(): LogicalDrive[];
-    export function getDrivePerformance(driveName: string): DrivePerformance;
+    export function getDevicePerformance(deviceName: string): DevicePerformance;
 }
 
 export as namespace WinDisk;

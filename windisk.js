@@ -22,10 +22,13 @@ for (const disk of logicalDrives) {
         'driveTypeName',
         driveTypeName[disk.driveType]
     );
-    const perf = windisk.getDrivePerformance(disk.name);
+
+    const cleanDiskName = disk.name.substr(0, disk.name.length - 1);
+
+    console.time("getPerf");
+    const perf = windisk.getDevicePerformance(cleanDiskName);
+    console.timeEnd("getPerf");
     console.log(perf);
-    console.log(perf.idleTimeHigh * 2 ^ 32 + perf.idleTimeLow);
-    break;
 }
 
-console.log(logicalDrives);
+// console.log(logicalDrives);
