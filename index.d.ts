@@ -25,6 +25,10 @@ declare namespace WinDisk {
         storageManagerName: string;
     }
 
+    export interface DosDevices {
+        [name: string]: string;
+    }
+
     export enum DriveType {
         UNKNOWN = 0,
         NO_ROOT_DIR = 1,
@@ -37,6 +41,7 @@ declare namespace WinDisk {
 
     export function getLogicalDrives(): LogicalDrive[];
     export function getDevicePerformance(deviceName: string): DevicePerformance;
+    export function getDosDevices(): DosDevices;
 }
 
 export as namespace WinDisk;

@@ -2,6 +2,7 @@
 #include <comdef.h>
 #include <sstream>
 #include <string>
+#include <iostream>
 #include "napi.h"
 using namespace std;
 using namespace Napi;
@@ -166,6 +167,24 @@ Value getDevicePerformance(const CallbackInfo& info) {
     return ret;
 }
 
+/*
+ * Retrieve Dos Devices
+ */
+Object getDosDevices(const CallbackInfo& info) {
+    Env env = info.Env();
+    Object ret = Object::New(env);
+    char logical[65536];
+    char physical[65536];
+
+    QueryDosDeviceA(NULL, physical, sizeof(physical));
+    for (char *pos = physical; *pos; pos+=strlen(pos)+1) {
+        QueryDosDeviceA(pos, logical, sizeof(logical));
+        ret.Set(pos, logical);
+    }    
+
+    return ret;
+}
+
 // Initialize Native Addon
 Object Init(Env env, Object exports) {
 
@@ -173,6 +192,7 @@ Object Init(Env env, Object exports) {
     // TODO: Launch with AsyncWorker to avoid event loop starvation
     exports.Set("getLogicalDrives", Function::New(env, getLogicalDrives));
     exports.Set("getDevicePerformance", Function::New(env, getDevicePerformance));
+    exports.Set("getDosDevices", Function::New(env, getDosDevices));
 
     return exports;
 }
