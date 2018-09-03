@@ -1,5 +1,5 @@
-# WinDisk
-Windows Disk low level binding
+# Windrive
+Windows Drive (disk) & Devices - Node.JS low level binding
 
 ## Requirement
 
