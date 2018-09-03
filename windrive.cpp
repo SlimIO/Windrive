@@ -2,7 +2,6 @@
 #include <comdef.h>
 #include <sstream>
 #include <string>
-#include <iostream>
 #include "napi.h"
 using namespace std;
 using namespace Napi;
@@ -15,6 +14,10 @@ using namespace Napi;
 
 /*
  * Retrieve Windows Logical Drives (with Drive type & Free spaces).
+ * 
+ * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-getlogicaldrivestringsw
+ * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-getdrivetypea
+ * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-getdiskfreespacea
  */
 Value getLogicalDrives(const CallbackInfo& info) {
     Env env = info.Env();
@@ -26,7 +29,6 @@ Value getLogicalDrives(const CallbackInfo& info) {
     // Throw error if we fail to retrieve result
     if (dwResult == 0 || dwResult > DRIVER_LENGTH) {
         Error::New(env, "Failed to retrieve logical drives names!").ThrowAsJavaScriptException();
-
         return env.Null();
     }
 
@@ -64,7 +66,7 @@ Value getLogicalDrives(const CallbackInfo& info) {
             double TotalClusters = (double) dwTotalClusters;
             double FreeClusterPourcent = (FreeClusters / TotalClusters) * 100;
 
-            drive.Set("bytesPerSect", (double) dwBytesPerSect);
+            drive.Set("bytesPerSect", dwBytesPerSect);
             drive.Set("freeClusters", FreeClusters);
             drive.Set("totalClusters", TotalClusters);
             drive.Set("usedClusterPourcent", 100 - FreeClusterPourcent);
@@ -80,32 +82,27 @@ Value getLogicalDrives(const CallbackInfo& info) {
 
 /*
  * Retrieve Disk Performance
+ * 
+ * Link to Microsoft documentation to understood how the code as been achieved:
+ * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-createfilea
+ * @doc: https://docs.microsoft.com/en-us/windows/desktop/devio/calling-deviceiocontrol
+ * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ni-winioctl-ioctl_disk_performance
+ * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ns-winioctl-_disk_performance
  */
-bool GetDiskPerformance(LPCSTR wszPath, DISK_PERFORMANCE *pdg) {
-    HANDLE hDevice = INVALID_HANDLE_VALUE;  // handle to the drive to be examined 
-    bool bResult   = FALSE;                 // results flag
-    DWORD junk     = 0;                     // discard results
-
-    hDevice = CreateFileA(wszPath,          // drive to open
-                        0,                  // no access to the drive
-                        FILE_SHARE_READ |   // share mode
-                        FILE_SHARE_WRITE, 
-                        NULL,               // default security attributes
-                        OPEN_EXISTING,      // disposition
-                        0,                  // file attributes
-                        NULL);              // do not copy file attributes
+bool HandleDiskPerformance(LPCSTR wszPath, DISK_PERFORMANCE *pdg) {
+    HANDLE hDevice = CreateFileA(
+        wszPath, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL
+    );              
 
     // cannot open the drive
     if (hDevice == INVALID_HANDLE_VALUE) {
         return false;
     }
 
-    bResult = DeviceIoControl(hDevice,               // device to be queried
-                        IOCTL_DISK_PERFORMANCE,      // operation to perform
-                        NULL, 0,                     // no input buffer
-                        pdg, sizeof(*pdg),           // output buffer
-                        &junk,                       // # bytes returned
-                        (LPOVERLAPPED) NULL);        // synchronous I/O
+    DWORD junk = 0;
+    bool bResult = DeviceIoControl(
+        hDevice, IOCTL_DISK_PERFORMANCE, NULL, 0, pdg, sizeof(*pdg), &junk, (LPOVERLAPPED) NULL
+    );     
     CloseHandle(hDevice);
 
     return bResult;
@@ -120,33 +117,34 @@ Value getDevicePerformance(const CallbackInfo& info) {
     // Check argument length!
     if (info.Length() < 1) {
         Error::New(env, "Wrong number of argument provided!").ThrowAsJavaScriptException();
-
         return env.Null();
     }
 
-    // DriveName should be typeof string
+    // driveName should be typeof Napi::String
     if (!info[0].IsString()) {
         Error::New(env, "argument driveName should be typeof string!").ThrowAsJavaScriptException();
-
         return env.Null();
     }
 
-    // Retrieve Device complete name!
+    /*
+     * Retrieve (Drive/PhysicalDrive) complete name as LPCSTR
+     */
     string driveName = info[0].As<String>().Utf8Value();
     std::stringstream ss;
-    ss << "\\\\.\\" << driveName;
+    ss << "\\\\.\\" << driveName; // Concat these weird carac (they are required to work).
     string tDriveName = ss.str();
     LPCSTR wszDrive = tDriveName.c_str();
 
+    // Retrieve Typedef struct DISK_PERFORMANCE
     DISK_PERFORMANCE pdg = { 0 };
-
-    // Get Disk Performance
-    bool bResult = GetDiskPerformance(wszDrive, &pdg);
+    bool bResult = HandleDiskPerformance(wszDrive, &pdg);
     if (!bResult) {
-        Error::New(env, "Failed to retrieve drive performance !").ThrowAsJavaScriptException();
-
+        Error::New(env, "Failed to retrieve drive performance!").ThrowAsJavaScriptException();
         return env.Null();
     }
+
+    // Transform WCHAR to _bstr_t (to be translated into a const char*)
+    _bstr_t charStorageManagerName(pdg.StorageManagerName);
 
     // Setup JavaScript Object
     Object ret = Object::New(env);
@@ -161,7 +159,6 @@ Value getDevicePerformance(const CallbackInfo& info) {
     ret.Set("splitCount", pdg.SplitCount);
     ret.Set("queryTime", pdg.QueryTime.QuadPart);
     ret.Set("storageDeviceNumber", pdg.StorageDeviceNumber);
-    _bstr_t charStorageManagerName(pdg.StorageManagerName);
     ret.Set("storageManagerName", (const char*) charStorageManagerName);
 
     return ret;
@@ -173,6 +170,8 @@ Value getDevicePerformance(const CallbackInfo& info) {
 Object getDosDevices(const CallbackInfo& info) {
     Env env = info.Env();
     Object ret = Object::New(env);
+
+    // TODO: Find the right memory allocation ? (double api call ?).
     char logical[65536];
     char physical[65536];
 
