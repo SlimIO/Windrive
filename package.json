@@ -8,6 +8,7 @@
   },
   "devDependencies": {
     "@types/node": "^10.9.4",
+    "benchmark": "^2.1.4",
     "node-gyp": "^3.5.0"
   },
   "scripts": {
