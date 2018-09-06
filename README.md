@@ -22,5 +22,8 @@ $ node-gyp build
 
 - Prepare npm package (export with bindings).
 - Add prebuilt (prebuildify)
-- Add Device Geometry !
-- Add AsyncWorker for all methods and return Promise Object!
+- Add Device Geometry Performance.
+- Add test.
+- Add ESLint & all required configuration for JavaScript.
+- Add JSDoc.
+- Add CPPLint to lint cpp files
