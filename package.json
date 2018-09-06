@@ -7,6 +7,7 @@
     "node-addon-api": "^1.4.0"
   },
   "devDependencies": {
+    "@types/node": "^10.9.4",
     "node-gyp": "^3.5.0"
   },
   "scripts": {

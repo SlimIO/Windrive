@@ -3,115 +3,160 @@
 #include <sstream>
 #include <string>
 #include "napi.h"
+
 using namespace std;
 using namespace Napi;
 
 /*
  * Buffer length for logical drives names
- * TODO: Best value ?
+ * TODO: Best value ? (120 is almost good for 30 disks)
  */
-#define DRIVER_LENGTH 150
+#define DRIVER_LENGTH 120
 
 /*
- * Retrieve Windows Logical Drives (with Drive type & Free spaces).
+ * Logical Drive struct
+ */
+struct LogicalDrive {
+    TCHAR* name;
+    string driveType;
+    DWORD bytesPerSect;
+    DWORD freeClusters;
+    DWORD totalClusters;
+    double usedClusterPourcent;
+    double freeClusterPourcent;
+};
+
+/*
+ * Disk Performance struct
+ */
+struct DiskPerformance {
+    LONGLONG bytesRead;
+    LONGLONG bytesWritten;
+    LONGLONG readTime;
+    LONGLONG writeTime;
+    LONGLONG idleTime;
+    DWORD readCount;
+    DWORD writeCount;
+    DWORD queueDepth;
+    DWORD splitCount;
+    LONGLONG queryTime;
+    DWORD storageDeviceNumber;
+    const char* storageManagerName;
+};
+
+/*
+ * Asycnronous Worker to Retrieve Windows Logical Drives
  * 
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-getlogicaldrivestringsw
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-getdrivetypea
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-getdiskfreespacea
  */
-Value getLogicalDrives(const CallbackInfo& info) {
-    Env env = info.Env();
+class LogicalDriveWorker : public AsyncWorker {
+    public:
+        LogicalDriveWorker(Function& callback) : AsyncWorker(callback) {}
+        ~LogicalDriveWorker() {}
 
-    // Retrieve Logicial Drives
-    TCHAR szBuffer[DRIVER_LENGTH];
-    DWORD dwResult = GetLogicalDriveStrings(DRIVER_LENGTH, szBuffer);
+    private:
+        vector<LogicalDrive> vLogicalDrives;
 
-    // Throw error if we fail to retrieve result
-    if (dwResult == 0 || dwResult > DRIVER_LENGTH) {
-        Error::New(env, "Failed to retrieve logical drives names!").ThrowAsJavaScriptException();
-        return env.Null();
-    }
+    // This code will be executed on the worker thread
+    void Execute() {
+        BOOL success;
+        UINT driveType;
+        TCHAR szBuffer[DRIVER_LENGTH];
+        DWORD dwResult = GetLogicalDriveStrings(DRIVER_LENGTH, szBuffer);
 
-    // TODO: Find Array size with dwResult ?
-    Array ret = Array::New(env);
-
-    TCHAR *lpRootPathName = szBuffer;
-    unsigned int i = 0;
-    while (*lpRootPathName) {
-
-        // Setup JavaScript Object
-        Object drive = Object::New(env);
-        ret[i] = drive;
-
-        drive.Set("name", lpRootPathName);
-
-        // Retrieve Drive Type
-        UINT driveType = GetDriveType(lpRootPathName);
-
-        drive.Set("driveType", (double) driveType);
-
-        // Retrieve Drive Free Space
-        DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
-        bool fResult = GetDiskFreeSpace(
-            lpRootPathName,
-            &dwSectPerClust,
-            &dwBytesPerSect,
-            &dwFreeClusters,
-            &dwTotalClusters
-        );
-
-        if(fResult && dwBytesPerSect != 0) {
-            // Convert to double and Calcule FreeClusterPourcent
-            double FreeClusters = (double) dwFreeClusters;
-            double TotalClusters = (double) dwTotalClusters;
-            double FreeClusterPourcent = (FreeClusters / TotalClusters) * 100;
-
-            drive.Set("bytesPerSect", dwBytesPerSect);
-            drive.Set("freeClusters", FreeClusters);
-            drive.Set("totalClusters", TotalClusters);
-            drive.Set("usedClusterPourcent", 100 - FreeClusterPourcent);
-            drive.Set("freeClusterPourcent", FreeClusterPourcent);
+        // Throw error if we fail to retrieve result
+        if (dwResult == 0 || dwResult > DRIVER_LENGTH) {
+            return SetError("Failed to retrieve logical drives names!");
         }
 
-        lpRootPathName += strlen((const char*) lpRootPathName) + 1;
-        i++;
+        TCHAR *lpRootPathName = szBuffer;
+        while (*lpRootPathName) {
+
+            // Instanciate Variables
+            DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
+            LogicalDrive drive;
+
+            // Setup default variables!
+            drive.name = lpRootPathName;
+            driveType = GetDriveType(lpRootPathName);
+            switch(driveType) {
+                case DRIVE_UNKNOWN:
+                    drive.driveType = string("UNKNOWN");
+                    break;
+                case DRIVE_NO_ROOT_DIR:
+                    drive.driveType = string("NO_ROOT_DIR");
+                    break;
+                case DRIVE_REMOVABLE:
+                    drive.driveType = string("REMOVABLE");
+                    break;
+                case DRIVE_FIXED:
+                    drive.driveType = string("FIXED");
+                    break;
+                case DRIVE_REMOTE:
+                    drive.driveType = string("REMOTE");
+                    break;
+                case DRIVE_CDROM:
+                    drive.driveType = string("CDROM");
+                    break;
+                case DRIVE_RAMDISK:
+                    drive.driveType = string("RAMDISK");
+                    break;
+            }
+
+            // Ignore CDROM, they have no Space or anything!
+            if (driveType != DRIVE_CDROM) {
+                // Retrieve Drive Free Space
+                success = GetDiskFreeSpace(
+                    lpRootPathName,
+                    &dwSectPerClust,
+                    &dwBytesPerSect,
+                    &dwFreeClusters,
+                    &dwTotalClusters
+                );
+
+                if(success && dwBytesPerSect != 0) {
+                    double FreeClusterPourcent = (dwFreeClusters / dwTotalClusters) * 100;
+
+                    drive.bytesPerSect = dwBytesPerSect;
+                    drive.freeClusters = dwFreeClusters;
+                    drive.totalClusters = dwTotalClusters;
+                    drive.usedClusterPourcent = 100 - FreeClusterPourcent;
+                    drive.freeClusterPourcent = FreeClusterPourcent;
+                }
+            }
+
+            vLogicalDrives.push_back(drive);
+            lpRootPathName += strlen((const char*) lpRootPathName) + 1;
+        }
     }
 
-    return ret;
-}
+    void OnOK() {
+        HandleScope scope(Env());
+        Array ret = Array::New(Env());
+        for (size_t i = 0; i < vLogicalDrives.size(); ++i) {
+            LogicalDrive currDrive = vLogicalDrives.at(i);
+            Object currJSDrive = Object::New(Env());
+            ret[i] = currJSDrive;
 
-/*
- * Retrieve Disk Performance
- * 
- * Link to Microsoft documentation to understood how the code as been achieved:
- * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-createfilea
- * @doc: https://docs.microsoft.com/en-us/windows/desktop/devio/calling-deviceiocontrol
- * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ni-winioctl-ioctl_disk_performance
- * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ns-winioctl-_disk_performance
- */
-bool HandleDiskPerformance(LPCSTR wszPath, DISK_PERFORMANCE *pdg) {
-    HANDLE hDevice = CreateFileA(
-        wszPath, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL
-    );              
-
-    // cannot open the drive
-    if (hDevice == INVALID_HANDLE_VALUE) {
-        return false;
+            currJSDrive.Set("name", currDrive.name);
+            currJSDrive.Set("type", currDrive.driveType);
+            currJSDrive.Set("bytesPerSect", currDrive.bytesPerSect);
+            currJSDrive.Set("freeClusters", currDrive.freeClusters);
+            currJSDrive.Set("totalClusters", currDrive.totalClusters);
+            currJSDrive.Set("usedClusterPourcent", currDrive.usedClusterPourcent);
+            currJSDrive.Set("freeClusterPourcent", currDrive.freeClusterPourcent);
+        }
+        Callback().Call({Env().Null(), ret});
     }
 
-    DWORD junk = 0;
-    bool bResult = DeviceIoControl(
-        hDevice, IOCTL_DISK_PERFORMANCE, NULL, 0, pdg, sizeof(*pdg), &junk, (LPOVERLAPPED) NULL
-    );     
-    CloseHandle(hDevice);
-
-    return bResult;
-}
+};
 
 /*
- * Binding for retrieving drive performance
+ * Retrieve Windows Logical Drives (with Drive type & Free spaces).
  */
-Value getDevicePerformance(const CallbackInfo& info) {
+Value getLogicalDrives(const CallbackInfo& info) {
     Env env = info.Env();
 
     // Check argument length!
@@ -121,67 +166,185 @@ Value getDevicePerformance(const CallbackInfo& info) {
     }
 
     // driveName should be typeof Napi::String
-    if (!info[0].IsString()) {
-        Error::New(env, "argument driveName should be typeof string!").ThrowAsJavaScriptException();
+    if (!info[0].IsFunction()) {
+        Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
         return env.Null();
     }
 
-    /*
-     * Retrieve (Drive/PhysicalDrive) complete name as LPCSTR
-     */
-    string driveName = info[0].As<String>().Utf8Value();
-    std::stringstream ss;
-    ss << "\\\\.\\" << driveName; // Concat these weird carac (they are required to work).
-    string tDriveName = ss.str();
-    LPCSTR wszDrive = tDriveName.c_str();
+    // Execute work with callback!
+    Function cb = info[0].As<Function>();
+    (new LogicalDriveWorker(cb))->Queue();
 
-    // Retrieve Typedef struct DISK_PERFORMANCE
-    DISK_PERFORMANCE pdg = { 0 };
-    bool bResult = HandleDiskPerformance(wszDrive, &pdg);
-    if (!bResult) {
-        Error::New(env, "Failed to retrieve drive performance!").ThrowAsJavaScriptException();
-        return env.Null();
-    }
-
-    // Transform WCHAR to _bstr_t (to be translated into a const char*)
-    _bstr_t charStorageManagerName(pdg.StorageManagerName);
-
-    // Setup JavaScript Object
-    Object ret = Object::New(env);
-    ret.Set("bytesRead", pdg.BytesRead.QuadPart);
-    ret.Set("bytesWritten", pdg.BytesWritten.QuadPart);
-    ret.Set("readTime", pdg.ReadTime.QuadPart);
-    ret.Set("writeTime", pdg.WriteTime.QuadPart);
-    ret.Set("idleTime", pdg.IdleTime.QuadPart);
-    ret.Set("readCount", pdg.ReadCount);
-    ret.Set("writeCount", pdg.WriteCount);
-    ret.Set("queueDepth", pdg.QueueDepth);
-    ret.Set("splitCount", pdg.SplitCount);
-    ret.Set("queryTime", pdg.QueryTime.QuadPart);
-    ret.Set("storageDeviceNumber", pdg.StorageDeviceNumber);
-    ret.Set("storageManagerName", (const char*) charStorageManagerName);
-
-    return ret;
+    return env.Undefined();
 }
+
+/*
+ * Retrieve Disk Performance Worker
+ * 
+ * Link to Microsoft documentation to understood how the code as been achieved:
+ * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-createfilea
+ * @doc: https://docs.microsoft.com/en-us/windows/desktop/devio/calling-deviceiocontrol
+ * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ni-winioctl-ioctl_disk_performance
+ * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ns-winioctl-_disk_performance
+ */
+class DiskPerformanceWorker : public AsyncWorker {
+    public:
+        DiskPerformanceWorker(Function& callback, string driveName) : AsyncWorker(callback), driveName(driveName) {}
+        ~DiskPerformanceWorker() {}
+
+    private:
+        string driveName;
+        DiskPerformance sDiskPerformance;
+
+    // This code will be executed on the worker thread
+    void Execute() {
+        stringstream ss;
+        ss << "\\\\.\\" << driveName; // Concat these weird carac (they are required to work).
+        string tDriveName = ss.str();
+        LPCSTR wszDrive = tDriveName.c_str();
+
+        // Retrieve Typedef struct DISK_PERFORMANCE
+        DISK_PERFORMANCE pdg = { 0 };
+
+        HANDLE hDevice = CreateFileA(
+            wszDrive, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL
+        );              
+
+        // cannot open the drive
+        if (hDevice == INVALID_HANDLE_VALUE) {
+            return SetError("Invalid Handle value for indicated Drive!");
+        }
+
+        DWORD junk = 0;
+        bool bResult = DeviceIoControl(
+            hDevice, IOCTL_DISK_PERFORMANCE, NULL, 0, &pdg, sizeof(pdg), &junk, (LPOVERLAPPED) NULL
+        );     
+        CloseHandle(hDevice);
+
+        // Transform WCHAR to _bstr_t (to be translated into a const char*)
+        _bstr_t charStorageManagerName(pdg.StorageManagerName);
+
+        sDiskPerformance.bytesRead = pdg.BytesRead.QuadPart;
+        sDiskPerformance.bytesWritten = pdg.BytesWritten.QuadPart;
+        sDiskPerformance.readTime = pdg.ReadTime.QuadPart;
+        sDiskPerformance.writeTime = pdg.WriteTime.QuadPart;
+        sDiskPerformance.idleTime = pdg.IdleTime.QuadPart;
+        sDiskPerformance.readCount = pdg.ReadCount;
+        sDiskPerformance.writeCount = pdg.WriteCount;
+        sDiskPerformance.queueDepth = pdg.QueueDepth;
+        sDiskPerformance.splitCount = pdg.SplitCount;
+        sDiskPerformance.queryTime = pdg.QueryTime.QuadPart;
+        sDiskPerformance.storageDeviceNumber = pdg.StorageDeviceNumber;
+        sDiskPerformance.storageManagerName = (const char*) charStorageManagerName;
+    }
+
+    void OnOK() {
+        HandleScope scope(Env());
+        Object ret = Object::New(Env());
+        ret.Set("bytesRead", sDiskPerformance.bytesRead);
+        ret.Set("bytesWritten", sDiskPerformance.bytesWritten);
+        ret.Set("readTime", sDiskPerformance.readTime);
+        ret.Set("writeTime", sDiskPerformance.writeTime);
+        ret.Set("idleTime", sDiskPerformance.idleTime);
+        ret.Set("readCount", sDiskPerformance.readCount);
+        ret.Set("writeCount", sDiskPerformance.writeCount);
+        ret.Set("queueDepth", sDiskPerformance.queueDepth);
+        ret.Set("splitCount", sDiskPerformance.splitCount);
+        ret.Set("queryTime", sDiskPerformance.queryTime);
+        ret.Set("storageDeviceNumber", sDiskPerformance.storageDeviceNumber);
+        ret.Set("storageManagerName", sDiskPerformance.storageManagerName);
+
+        Callback().Call({Env().Null(), ret});
+    }
+
+};
+
+/*
+ * Binding for retrieving drive performance
+ */
+Value getDevicePerformance(const CallbackInfo& info) {
+    Env env = info.Env();
+
+    // Check argument length!
+    if (info.Length() < 2) {
+        Error::New(env, "Wrong number of argument provided!").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    // callback should be typeof Napi::String
+    if (!info[1].IsFunction()) {
+        Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    // Execute worker thread!
+    string driveName = info[0].As<String>().Utf8Value();
+    Function cb = info[1].As<Function>();
+    (new DiskPerformanceWorker(cb, driveName))->Queue();
+
+    return env.Undefined();
+}
+
+/*
+ * Retrieve Dos Devices Worker
+ */
+class DosDevicesWorker : public AsyncWorker {
+    public:
+        DosDevicesWorker(Function& callback) : AsyncWorker(callback) {}
+        ~DosDevicesWorker() {}
+
+    private:
+        vector<pair<char*, char*>> vDosDevices;
+
+    // This code will be executed on the worker thread
+    void Execute() {
+        // TODO: Find the right memory allocation ? (double api call ?).
+        char logical[65536];
+        char physical[65536];
+
+        QueryDosDeviceA(NULL, physical, sizeof(physical));
+        for (char *pos = physical; *pos; pos+=strlen(pos)+1) {
+            QueryDosDeviceA(pos, logical, sizeof(logical));
+            vDosDevices.push_back(make_pair(pos, logical));
+        }    
+    }
+
+    void OnOK() {
+        HandleScope scope(Env());
+        Object ret = Object::New(Env());
+        for (size_t i = 0; i < vDosDevices.size(); ++i) {
+            pair<char*, char*> device = vDosDevices.at(i);
+            ret.Set(device.first, device.second);
+        }
+
+        Callback().Call({Env().Null(), ret});
+    }
+
+};
 
 /*
  * Retrieve Dos Devices
  */
-Object getDosDevices(const CallbackInfo& info) {
+Value getDosDevices(const CallbackInfo& info) {
     Env env = info.Env();
-    Object ret = Object::New(env);
 
-    // TODO: Find the right memory allocation ? (double api call ?).
-    char logical[65536];
-    char physical[65536];
+    // Check argument length!
+    if (info.Length() < 1) {
+        Error::New(env, "Wrong number of argument provided!").ThrowAsJavaScriptException();
+        return env.Null();
+    }
 
-    QueryDosDeviceA(NULL, physical, sizeof(physical));
-    for (char *pos = physical; *pos; pos+=strlen(pos)+1) {
-        QueryDosDeviceA(pos, logical, sizeof(logical));
-        ret.Set(pos, logical);
-    }    
+    // callback should be typeof Napi::String
+    if (!info[0].IsFunction()) {
+        Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
+        return env.Null();
+    }
 
-    return ret;
+    // Execute worker thread!
+    Function cb = info[0].As<Function>();
+    (new DosDevicesWorker(cb))->Queue();
+
+    return env.Undefined();
 }
 
 // Initialize Native Addon

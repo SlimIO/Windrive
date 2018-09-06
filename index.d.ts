@@ -3,7 +3,7 @@ declare namespace Windrive {
     export interface LogicalDrive {
         name: string;
         bytesPerSect: number;
-        driveType: number;
+        type: string;
         freeClusters: number;
         totalClusters: number;
         usedClusterPourcent: number;
@@ -29,19 +29,9 @@ declare namespace Windrive {
         [name: string]: string;
     }
 
-    export enum DriveType {
-        UNKNOWN = 0,
-        NO_ROOT_DIR = 1,
-        REMOVABLE = 2,
-        FIXED = 3,
-        REMOTE = 4,
-        CDROM = 5,
-        RAMDISK = 6
-    }
-
-    export function getLogicalDrives(): LogicalDrive[];
-    export function getDevicePerformance(deviceName: string): DevicePerformance;
-    export function getDosDevices(): DosDevices;
+    export function getLogicalDrives(): Promise<LogicalDrive[]>;
+    export function getDevicePerformance(deviceName: string): Promise<DevicePerformance>;
+    export function getDosDevices(): Promise<DosDevices>;
 }
 
 export as namespace Windrive;

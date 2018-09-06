@@ -1,66 +1,64 @@
-/** @type {Windrive} */
-const windisk = require("./build/Release/windrive.node");
+// Require Native addon
+const windrive = require("./build/Release/windrive.node");
 
-/** @type {String[]} */
-const driveTypeName = [
-    "UNKNOWN",
-    "NO_ROOT_DIR",
-    "REMOVABLE",
-    "FIXED",
-    "REMOTE",
-    "CDROM",
-    "RAMDISK"
-];
-
-function sleep(ms){
-    return new Promise(resolve=>{
-        setTimeout(resolve,ms)
-    })
+/**
+ * @async
+ * @function getLogicalDrives
+ * @return {Promise<Windrive.LogicalDrive[]>}
+ */
+function getLogicalDrives() {
+    return new Promise((resolve, reject) => {
+        windrive.getLogicalDrives((error, logicalDrives) => {
+            if (error) {
+                return reject(error);
+            }
+            resolve(logicalDrives);
+        });
+    });
 }
 
-console.time("getDosDevices");
-const dosDevices = windisk.getDosDevices();
-console.timeEnd("getDosDevices");
-// console.log(JSON.stringify(dosDevices, null, 4));
-
-const isDisk = /^[A-Za-z]{1}:{1}$/;
-const isPhysicalDrive = /^PhysicalDrive[0-9]+$/;
-function isStrPhysicalDrive(driveNameStr) {
-    if (isDisk.test(driveNameStr) || isPhysicalDrive.test(driveNameStr)) {
-        return true;
+/**
+ * @async
+ * @function getDevicePerformance
+ * @param {!String} driveName driveName
+ * @return {Promise<Windrive.DevicePerformance>}
+ */
+function getDevicePerformance(driveName) {
+    if (typeof driveName !== "string") {
+        throw new TypeError("driveName should be typeof string!");
     }
-    return false;
-}
-
-const filtered = Object.keys(dosDevices).filter(isStrPhysicalDrive);
-async function main() {
-    for (const deviceName of filtered) {
-        console.log(`\ndeviceName: ${deviceName}`);
-        console.log(`path: ${dosDevices[deviceName]}`);
-        const perf = windisk.getDevicePerformance(deviceName);
-        console.log(perf);
-        await sleep(500);
+    if (driveName.charAt(2) === "\\") {
+        driveName = driveName.substr(0, driveName.length - 1);
     }
+
+    return new Promise((resolve, reject) => {
+        windrive.getDevicePerformance(driveName, (error, performance) => {
+            if (error) {
+                return reject(error);
+            }
+            resolve(performance);
+        });
+    });
 }
-main().catch(console.error);
 
-// console.time("getLogicalDrives");
-// const logicalDrives = windisk.getLogicalDrives();
-// console.timeEnd("getLogicalDrives"); 
+/**
+ * @async
+ * @function getDosDevices
+ * @return {Promise<Windrive.DosDevices>}
+ */
+function getDosDevices() {
+    return new Promise((resolve, reject) => {
+        windrive.getDosDevices((error, dosDevices) => {
+            if (error) {
+                return reject(error);
+            }
+            resolve(dosDevices);
+        });
+    });
+}
 
-// for (const disk of logicalDrives) {
-//     Reflect.set(
-//         disk,
-//         'driveTypeName',
-//         driveTypeName[disk.driveType]
-//     );
-
-//     const cleanDiskName = disk.name.substr(0, disk.name.length - 1);
-//     console.log(`\nDisk name: ${cleanDiskName}`);
-
-//     console.time("getPerf");
-//     const perf = windisk.getDevicePerformance(cleanDiskName);
-//     console.timeEnd("getPerf");
-//     console.log(JSON.stringify(perf, null, 4));
-// }
-
+module.exports = {
+    getLogicalDrives,
+    getDosDevices,
+    getDevicePerformance
+}
