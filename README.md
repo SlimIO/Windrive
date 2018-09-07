@@ -1,16 +1,140 @@
 # Windrive
-Windows Drive (disk) & Devices - Node.JS low level binding
 
-## Requirement
+SlimIO Windrive is a NodeJS binding which expose low-level Microsoft APIs on Logical Drive, Disk and Devices.
 
-- Windows build tools
-- Node-gyp
+This binding expose the following methods/struct:
 
-Take a look at: https://www.npmjs.com/package/windows-build-tools
+- [GetLogicalDrives](https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-getlogicaldrives)
+- [GetDiskFreeSpace](https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-getdiskfreespacea)
+- [GetDriveType](https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-getdrivetypea)
+- [QueryDosDevice](https://docs.microsoft.com/en-us/windows/desktop/api/winbase/nf-winbase-querydosdevicea)
+- [DISK_PERFORMANCE](https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ns-winioctl-_disk_performance)
+- [DISK_GEOMETRY](https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ns-winioctl-_disk_geometry)
+- [DISK_CACHE_INFORMATION](https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ns-winioctl-_disk_cache_information)
 
-## Starter guide
+> !!! All method are called asynchronously without blocking the libuv event-loop !!!
 
-To setup the project on your computer
+## Getting Started
+
+This package is available in the Node Package Repository and can be easily installed with [npm](https://docs.npmjs.com/getting-started/what-is-npm) or [yarn](https://yarnpkg.com).
+
+```bash
+$ npm i @slimio/windrive
+# or
+$ yarn add @slimio/windrive
+```
+
+## Usage example
+
+Retrieve all logical drives and get each disk performance !
+
+```js
+const windrive = require("@slimio/windrive");
+
+async function main() {
+    const logicalDrives = await windrive.getLogicalDrives();
+
+    for (const drive of logicalDrives) {
+        console.log(`drive name: ${drive.name}`);
+        const diskPerformance = await windrive.getDevicePerformance(drive.name);
+        console.log(diskPerformance);
+    }
+}
+main().catch(console.error);
+```
+
+## API
+
+### getLogicalDrives(): Promise<LogicalDrive[]>
+Retrieves the currently available disk drives. An array of LogicalDrive is returned.
+
+```ts
+interface LogicalDrive {
+    name: string;
+    bytesPerSect: number;
+    type: string;
+    freeClusters: number;
+    totalClusters: number;
+    usedClusterPourcent: number;
+    freeClusterPourcent: number;
+}
+```
+
+> CDROM Type have no Free Spaces or anything (only name and type are returned).
+
+### getDosDevices(): Promise<DosDevices>
+Retrieves information about MS-DOS device names. Return an key -> value Object where the key is the device name and value the path to the device.
+
+```ts
+interface DosDevices {
+    [name: string]: string;
+}
+```
+
+### getDevicePerformance(deviceName: string): Promise<DevicePerformance>
+Provides disk performance information about a given device (drive). Return a DevicePerformance Object.
+
+```ts
+interface DevicePerformance {
+    bytesRead: number;
+    bytesWritten: number;
+    readTime: number;
+    writeTime: number;
+    idleTime: number;
+    readCount: number;
+    writeCount: number;
+    queueDepth: number;
+    splitCount: number;
+    queryTime: number;
+    storageDeviceNumber: number;
+    storageManagerName: string;
+}
+```
+
+### getDiskCacheInformation(deviceName: string): Promise<DiskCacheInformation>
+Provides information about the disk cache. Return a DiskCacheInformation Object.
+
+```ts
+interface DiskCacheInformation {
+    parametersSavable: boolean;
+    readCacheEnabled: boolean;
+    writeCacheEnabled: boolean;
+    prefetchScalar: boolean;
+    readRetentionPriority: "EqualPriority" | "KeepPrefetchedData" | "KeepReadData";
+    writeRetentionPriority: number;
+    disablePrefetchTransferLength: number;
+    scalarPrefetch?: {
+        minimum: number;
+        maximum: number;
+        maximumBlocks: number;
+    };
+    blockPrefetch?: {
+        minimum: number;
+        maximum: number;
+    };
+}
+```
+
+### getDeviceGeometry(deviceName: string): Promise<DeviceGeometry>
+Describes the geometry of disk devices and media. Return a DeviceGeometry Object.
+
+```ts
+interface DeviceGeometry {
+    mediaType: number;
+    cylinders: number;
+    bytesPerSector: number;
+    sectorsPerTrack: number;
+    tracksPerCylinder: number;
+}
+```
+
+## How to build the project
+
+Before building the project, be sure to get the following installed:
+
+- [Windows build tools](https://www.npmjs.com/package/windows-build-tools)
+
+And execute these commands:
 
 ```bash
 $ npm install
@@ -18,7 +142,8 @@ $ node-gyp configure
 $ node-gyp build
 ```
 
-## TODO
+## Roadmap 1.1.0
 
-- Add test.
+- Add complete tests & coverage support.
+- Add more comments to improve support.
 - Add CPPLint to lint cpp files
