@@ -32,6 +32,36 @@ declare namespace Windrive {
         bytesPerSector: number;
         sectorsPerTrack: number;
         tracksPerCylinder: number;
+        partition: {
+            diskId: string;
+            size: number;
+            style: "MBR" | "GPT" | "RAW";
+            mbr: {
+                signature: number;
+                checksum: number;
+            }
+        };
+        detection: {
+            size: number;
+            type: "ExInt13" | "Int13" | "None";
+            int13?: {
+                driveSelect: number;
+                maxCylinders: number;
+                sectorsPerTrack: number;
+                maxHeads: number;
+                numberDrives: number;
+            };
+            exInt13?: {
+                bufferSize: number;
+                flags: number;
+                cylinders: number;
+                heads: number;
+                sectorsPerTrack: number;
+                sectorsPerDrive: number;
+                sectorSize: number;
+                reserved: number;
+            };
+        }
     }
 
     export interface DiskCacheInformation {

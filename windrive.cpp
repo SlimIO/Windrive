@@ -2,6 +2,7 @@
 #include <comdef.h>
 #include <sstream>
 #include <string>
+#include <iostream>
 #include "napi.h"
 
 using namespace std;
@@ -67,6 +68,21 @@ struct DiskCacheInformation {
         } blockPrefetch;
     };
 };
+
+/*
+ * Convert GUID to std::string
+ */
+string guidToString(GUID guid) {
+	char guid_cstr[39];
+	snprintf(guid_cstr, sizeof(guid_cstr),
+	         "{%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
+	         guid.Data1, guid.Data2, guid.Data3,
+	         guid.Data4[0], guid.Data4[1], guid.Data4[2], guid.Data4[3],
+	         guid.Data4[4], guid.Data4[5], guid.Data4[6], guid.Data4[7]);
+
+	return string(guid_cstr);
+}
+
 
 /*
  * Asycnronous Worker to Retrieve Windows Logical Drives
@@ -389,6 +405,8 @@ class DeviceGeometryWorker : public AsyncWorker {
     private:
         string driveName;
         DeviceGeometry sDeviceGeometry;
+        PDISK_DETECTION_INFO diskDetect;
+        PDISK_PARTITION_INFO diskPartition;
 
     // This code will be executed on the worker thread
     void Execute() {
@@ -415,6 +433,10 @@ class DeviceGeometryWorker : public AsyncWorker {
         );     
         CloseHandle(hDevice);
 
+        // Retrieve Detection & Partition information
+        diskDetect = DiskGeometryGetDetect(&pdg);
+        diskPartition = DiskGeometryGetPartition(&pdg);
+
         sDeviceGeometry.diskSize = pdg.DiskSize.QuadPart;
         sDeviceGeometry.mediaType = (double) pdg.Geometry.MediaType;
         sDeviceGeometry.cylinders = pdg.Geometry.Cylinders.QuadPart;
@@ -433,6 +455,66 @@ class DeviceGeometryWorker : public AsyncWorker {
         ret.Set("bytesPerSector", sDeviceGeometry.bytesPerSector);
         ret.Set("sectorsPerTrack", sDeviceGeometry.sectorsPerTrack);
         ret.Set("tracksPerCylinder", sDeviceGeometry.tracksPerCylinder);
+
+        // Partition
+        Object partition = Object::New(Env());
+        partition.Set("diskId", guidToString(diskPartition->Gpt.DiskId));
+        partition.Set("size", diskPartition->SizeOfPartitionInfo);
+        switch(diskPartition->PartitionStyle) {
+            case PARTITION_STYLE_MBR:
+                partition.Set("style", "MBR");
+                break;
+            case PARTITION_STYLE_GPT:
+                partition.Set("style", "GPT");
+                break;
+            case PARTITION_STYLE_RAW:
+                partition.Set("style", "RAW");
+                break;
+        }
+        Object mbr = Object::New(Env());
+        mbr.Set("signature", diskPartition->Mbr.Signature);
+        mbr.Set("checksum", diskPartition->Mbr.CheckSum);
+        partition.Set("mbr", mbr);
+        ret.Set("partition", partition);
+
+        // Detection Info
+        Object detection = Object::New(Env());
+        detection.Set("size", diskDetect->SizeOfDetectInfo);
+
+        cout << "detection type: " << diskDetect->DetectionType << endl;
+        switch(diskDetect->DetectionType) {
+            case DetectExInt13:
+                detection.Set("type", "ExInt13");
+                break;
+            case DetectInt13:
+                detection.Set("type", "Int13");
+                break;
+            case DetectNone:
+                detection.Set("type", "None");
+                break;
+        }
+        if (diskDetect->DetectionType == DetectInt13) {
+            Object int13 = Object::New(Env());
+            int13.Set("driveSelect", diskDetect->Int13.DriveSelect);
+            int13.Set("maxCylinders", diskDetect->Int13.MaxCylinders);
+            int13.Set("sectorsPerTrack", diskDetect->Int13.SectorsPerTrack);
+            int13.Set("maxHeads", diskDetect->Int13.MaxHeads);
+            int13.Set("numberDrives", diskDetect->Int13.NumberDrives);
+            detection.Set("int13", int13);
+        }
+        else if (diskDetect->DetectionType == DetectExInt13) {
+            Object ExInt13 = Object::New(Env());
+            ExInt13.Set("bufferSize", diskDetect->ExInt13.ExBufferSize);
+            ExInt13.Set("flags", diskDetect->ExInt13.ExFlags);
+            ExInt13.Set("cylinders", diskDetect->ExInt13.ExCylinders);
+            ExInt13.Set("heads", diskDetect->ExInt13.ExHeads);
+            ExInt13.Set("sectorsPerTrack", diskDetect->ExInt13.ExSectorsPerTrack);
+            ExInt13.Set("sectorsPerDrive", diskDetect->ExInt13.ExSectorsPerDrive);
+            ExInt13.Set("sectorSize", diskDetect->ExInt13.ExSectorSize);
+            ExInt13.Set("reserved", diskDetect->ExInt13.ExReserved);
+            detection.Set("exInt13", ExInt13);
+        }
+        ret.Set("detection", detection);
 
         Callback().Call({Env().Null(), ret});
     }
