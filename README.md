@@ -200,6 +200,6 @@ $ node-gyp build
 
 ## Roadmap 1.1.0
 
-- Add complete tests & coverage support.
-- Add more comments to improve support.
+- Push tests coverage to 100%
+- Improve error handling in CPP with GetLastError() & FormatMessage()
 - Add CPPLint to lint cpp files
