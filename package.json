@@ -1,6 +1,6 @@
 {
   "name": "@slimio/windrive",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Windows Drive (disk) & Devices low level binding",
   "main": "index.js",
   "dependencies": {
