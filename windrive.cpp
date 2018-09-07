@@ -13,9 +13,6 @@ using namespace Napi;
  */
 #define DRIVER_LENGTH 120
 
-/*
- * Logical Drive struct
- */
 struct LogicalDrive {
     TCHAR* name;
     string driveType;
@@ -26,9 +23,6 @@ struct LogicalDrive {
     double freeClusterPourcent;
 };
 
-/*
- * Disk Performance struct
- */
 struct DiskPerformance {
     LONGLONG bytesRead;
     LONGLONG bytesWritten;
@@ -44,9 +38,6 @@ struct DiskPerformance {
     const char* storageManagerName;
 };
 
-/*
- * Disk & Media Geometry
- */
 struct DeviceGeometry {
     double mediaType;
     LONGLONG cylinders;
@@ -55,9 +46,6 @@ struct DeviceGeometry {
     DWORD bytesPerSector;
 };
 
-/*
- * Disk Cache Information struct
- */
 struct DiskCacheInformation {
     bool parametersSavable;
     bool readCacheEnabled;
@@ -192,7 +180,7 @@ class LogicalDriveWorker : public AsyncWorker {
  * Retrieve Windows Logical Drives (with Drive type & Free spaces).
  */
 Value getLogicalDrives(const CallbackInfo& info) {
-    Env env = info.Env();
+    const Env env = info.Env();
 
     // Check argument length!
     if (info.Length() < 1) {
@@ -200,13 +188,13 @@ Value getLogicalDrives(const CallbackInfo& info) {
         return env.Null();
     }
 
-    // driveName should be typeof Napi::String
+    // callback should be a Napi::Function
     if (!info[0].IsFunction()) {
         Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
         return env.Null();
     }
 
-    // Execute work with callback!
+    // Execute worker
     Function cb = info[0].As<Function>();
     (new LogicalDriveWorker(cb))->Queue();
 
@@ -221,6 +209,7 @@ Value getLogicalDrives(const CallbackInfo& info) {
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/devio/calling-deviceiocontrol
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ni-winioctl-ioctl_disk_performance
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ns-winioctl-_disk_performance
+ * 
  */
 class DiskPerformanceWorker : public AsyncWorker {
     public:
@@ -257,6 +246,7 @@ class DiskPerformanceWorker : public AsyncWorker {
         CloseHandle(hDevice);
 
         // Transform WCHAR to _bstr_t (to be translated into a const char*)
+        // @header: comdef.h
         _bstr_t charStorageManagerName(pdg.StorageManagerName);
 
         sDiskPerformance.bytesRead = pdg.BytesRead.QuadPart;
@@ -275,6 +265,7 @@ class DiskPerformanceWorker : public AsyncWorker {
 
     void OnOK() {
         HandleScope scope(Env());
+
         Object ret = Object::New(Env());
         ret.Set("bytesRead", sDiskPerformance.bytesRead);
         ret.Set("bytesWritten", sDiskPerformance.bytesWritten);
@@ -298,7 +289,7 @@ class DiskPerformanceWorker : public AsyncWorker {
  * Binding for retrieving drive performance
  */
 Value getDevicePerformance(const CallbackInfo& info) {
-    Env env = info.Env();
+    const Env env = info.Env();
 
     // Check argument length!
     if (info.Length() < 2) {
@@ -335,7 +326,6 @@ class DosDevicesWorker : public AsyncWorker {
 
     // This code will be executed on the worker thread
     void Execute() {
-        // TODO: Find the right memory allocation ? (double api call ?).
         char logical[65536];
         char physical[65536];
 
@@ -348,6 +338,7 @@ class DosDevicesWorker : public AsyncWorker {
 
     void OnOK() {
         HandleScope scope(Env());
+
         Object ret = Object::New(Env());
         for (size_t i = 0; i < vDosDevices.size(); ++i) {
             pair<char*, char*> device = vDosDevices.at(i);
@@ -363,7 +354,7 @@ class DosDevicesWorker : public AsyncWorker {
  * Retrieve Dos Devices
  */
 Value getDosDevices(const CallbackInfo& info) {
-    Env env = info.Env();
+    const Env env = info.Env();
 
     // Check argument length!
     if (info.Length() < 1) {
@@ -371,7 +362,7 @@ Value getDosDevices(const CallbackInfo& info) {
         return env.Null();
     }
 
-    // callback should be typeof Napi::String
+    // callback should be a Napi::Function
     if (!info[0].IsFunction()) {
         Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
         return env.Null();
@@ -386,6 +377,8 @@ Value getDosDevices(const CallbackInfo& info) {
 
 /*
  * Device Geometry Worker
+ * 
+ * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ns-winioctl-_disk_geometry
  */
 class DeviceGeometryWorker : public AsyncWorker {
     public:
@@ -430,6 +423,7 @@ class DeviceGeometryWorker : public AsyncWorker {
 
     void OnOK() {
         HandleScope scope(Env());
+
         Object ret = Object::New(Env());
         ret.Set("mediaType", sDeviceGeometry.mediaType);
         ret.Set("cylinders", sDeviceGeometry.cylinders);
@@ -443,10 +437,10 @@ class DeviceGeometryWorker : public AsyncWorker {
 };
 
 /*
- * Retrieve Device Geometry
+ * Retrieve Device (Disk) Geometry
  */
 Value getDeviceGeometry(const CallbackInfo& info) {
-    Env env = info.Env();
+    const Env env = info.Env();
 
     // Check argument length!
     if (info.Length() < 2) {
@@ -454,7 +448,7 @@ Value getDeviceGeometry(const CallbackInfo& info) {
         return env.Null();
     }
 
-    // callback should be typeof Napi::String
+    // callback should be a Napi::Function
     if (!info[1].IsFunction()) {
         Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
         return env.Null();
@@ -470,7 +464,9 @@ Value getDeviceGeometry(const CallbackInfo& info) {
 
 
 /*
- * Retrieve Dos Devices Worker
+ * Disk Cache Worker
+ * 
+ * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ns-winioctl-_disk_cache_information
  */
 class DiskCacheWorker : public AsyncWorker {
     public:
@@ -537,8 +533,8 @@ class DiskCacheWorker : public AsyncWorker {
 
     void OnOK() {
         HandleScope scope(Env());
+    
         Object ret = Object::New(Env());
-
         ret.Set("parametersSavable", Boolean::New(Env(), sDiskCacheInformation.parametersSavable));
         ret.Set("readCacheEnabled", Boolean::New(Env(), sDiskCacheInformation.readCacheEnabled));
         ret.Set("writeCacheEnabled", Boolean::New(Env(), sDiskCacheInformation.writeCacheEnabled));
@@ -565,10 +561,10 @@ class DiskCacheWorker : public AsyncWorker {
 };
 
 /*
- * Retrieve Dos Devices
+ * Retrieve Disk Cache information
  */
 Value getDiskCacheInformation(const CallbackInfo& info) {
-    Env env = info.Env();
+    const Env env = info.Env();
 
     // Check argument length!
     if (info.Length() < 2) {
@@ -576,7 +572,7 @@ Value getDiskCacheInformation(const CallbackInfo& info) {
         return env.Null();
     }
 
-    // callback should be typeof Napi::String
+    // callback should be a Napi::Function
     if (!info[1].IsFunction()) {
         Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
         return env.Null();
@@ -593,7 +589,7 @@ Value getDiskCacheInformation(const CallbackInfo& info) {
 // Initialize Native Addon
 Object Init(Env env, Object exports) {
 
-    // Setup methods
+    // Exports addon methods!
     exports.Set("getLogicalDrives", Function::New(env, getLogicalDrives));
     exports.Set("getDevicePerformance", Function::New(env, getDevicePerformance));
     exports.Set("getDeviceGeometry", Function::New(env, getDeviceGeometry));
@@ -603,5 +599,5 @@ Object Init(Env env, Object exports) {
     return exports;
 }
 
-// Export
+// Export Addon as windrive
 NODE_API_MODULE(windrive, Init)
