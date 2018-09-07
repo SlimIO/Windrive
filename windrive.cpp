@@ -2,7 +2,6 @@
 #include <comdef.h>
 #include <sstream>
 #include <string>
-#include <iostream>
 #include "napi.h"
 
 using namespace std;
@@ -481,7 +480,6 @@ class DeviceGeometryWorker : public AsyncWorker {
         Object detection = Object::New(Env());
         detection.Set("size", diskDetect->SizeOfDetectInfo);
 
-        cout << "detection type: " << diskDetect->DetectionType << endl;
         switch(diskDetect->DetectionType) {
             case DetectExInt13:
                 detection.Set("type", "ExInt13");
