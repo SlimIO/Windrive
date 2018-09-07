@@ -9,7 +9,7 @@ This binding expose the following methods/struct:
 - [GetDriveType](https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-getdrivetypea)
 - [QueryDosDevice](https://docs.microsoft.com/en-us/windows/desktop/api/winbase/nf-winbase-querydosdevicea)
 - [DISK_PERFORMANCE](https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ns-winioctl-_disk_performance)
-- [DISK_GEOMETRY](https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ns-winioctl-_disk_geometry)
+- [DISK_GEOMETRY_EX](https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ns-winioctl-_disk_geometry_ex)
 - [DISK_CACHE_INFORMATION](https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ns-winioctl-_disk_cache_information)
 
 > !!! All method are called asynchronously without blocking the libuv event-loop !!!
@@ -26,7 +26,7 @@ $ yarn add @slimio/windrive
 
 ## Usage example
 
-Retrieve all logical drives and get each disk performance !
+Get all active logical drives and retrieve disk performance for each of them!
 
 ```js
 const windrive = require("@slimio/windrive");
@@ -45,14 +45,16 @@ main().catch(console.error);
 
 ## API
 
-### getLogicalDrives(): Promise<LogicalDrive[]>
+### getLogicalDrives(): Promise< LogicalDrive[] >
 Retrieves the currently available disk drives. An array of LogicalDrive is returned.
 
 ```ts
+type LogicalDriveType = "UNKNOWN" | "NO_ROOT_DIR" | "REMOVABLE" | "FIXED" | "REMOTE" | "CDROM" | "RAMDISK";
+
 interface LogicalDrive {
     name: string;
     bytesPerSect: number;
-    type: string;
+    type: LogicalDriveType;
     freeClusters: number;
     totalClusters: number;
     usedClusterPourcent: number;
@@ -74,7 +76,7 @@ Possible drive types are:
 
 > CDROM Type have no FreeSpaces (only name and type are returned).
 
-### getDosDevices(): Promise<DosDevices>
+### getDosDevices(): Promise< DosDevices >
 Retrieves information about MS-DOS device names. Return an key -> value Object where the key is the device name and value the path to the device.
 
 ```ts
@@ -82,7 +84,7 @@ interface DosDevices {
     [name: string]: string;
 }
 ```
-
+allDrivePerformance
 For example, you can filter the result to retrieves Logical and **Physical** Drives information & performance:
 ```js
 const isDisk = /^[A-Za-z]{1}:{1}$/;
@@ -91,12 +93,18 @@ function isLogicalOrPhysicalDrive(driveNameStr) {
     return isDisk.test(driveNameStr) || isPhysicalDrive.test(driveNameStr) ? true : false;
 }
 
-const dosDevices = await windrive.getDosDevices();
-const filteredDevices = Object.keys(dosDevices).filter(isLogicalOrPhysicalDrive);
-const allPerformance = await Promise.all(filteredDevices.map(dev => windrive.getDevicePerformance(dev)));
+async function main() {
+    const dosDevices = await windrive.getDosDevices();
+    const physicalAndLogicalDriveDevices = Object.keys(dosDevices).filter(isLogicalOrPhysicalDrive);
+    const allDrivePerformance = await Promise.all(
+        physicalAndLogicalDriveDevices.map(dev => windrive.getDevicePerformance(dev))
+    );
+    console.log(allDrivePerformance);
+}
+main().catch(console.error);
 ```
 
-### getDevicePerformance(deviceName: string): Promise<DevicePerformance>
+### getDevicePerformance(deviceName: string): Promise< DevicePerformance >
 Provides disk performance information about a given device (drive). Return a DevicePerformance Object.
 
 ```ts
@@ -116,8 +124,10 @@ interface DevicePerformance {
 }
 ```
 
-### getDiskCacheInformation(deviceName: string): Promise<DiskCacheInformation>
+### getDiskCacheInformation(deviceName: string): Promise< DiskCacheInformation >
 Provides information about the disk cache. Return a DiskCacheInformation Object.
+
+The result of the property `prefetchScalar` define which of scalarPrefetch (**true**) or blockPrefect (**false**) should be filled/completed.
 
 ```ts
 interface DiskCacheInformation {
@@ -140,7 +150,7 @@ interface DiskCacheInformation {
 }
 ```
 
-### getDeviceGeometry(deviceName: string): Promise<DeviceGeometry>
+### getDeviceGeometry(deviceName: string): Promise< DeviceGeometry >
 Describes the geometry of disk devices and media. Return a DeviceGeometry Object.
 
 ```ts
@@ -184,6 +194,8 @@ interface DeviceGeometry {
 }
 ```
 
+Media type enumeration can be retrieved [here](https://msdn.microsoft.com/en-us/library/windows/desktop/aa365231(v=vs.85).aspx).
+
 ## How to build the project
 
 Before building the project, be sure to get the following npm package installed:
@@ -198,7 +210,7 @@ $ npx node-gyp configure
 $ npx node-gyp build
 ```
 
-## Roadmap 1.1.0
+## Roadmap 1.2.0
 
 - Push tests coverage to 100%
 - Improve error handling in CPP with GetLastError() & FormatMessage()

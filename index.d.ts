@@ -1,9 +1,11 @@
 declare namespace Windrive {
 
+    export type LogicalDriveType = "UNKNOWN" | "NO_ROOT_DIR" | "REMOVABLE" | "FIXED" | "REMOTE" | "CDROM" | "RAMDISK";
+
     export interface LogicalDrive {
         name: string;
         bytesPerSect: number;
-        type: string;
+        type: LogicalDriveType;
         freeClusters: number;
         totalClusters: number;
         usedClusterPourcent: number;
