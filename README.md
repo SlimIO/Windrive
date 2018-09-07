@@ -91,7 +91,8 @@ function isLogicalOrPhysicalDrive(driveNameStr) {
     return isDisk.test(driveNameStr) || isPhysicalDrive.test(driveNameStr) ? true : false;
 }
 
-const filteredDevices = (await windrive.getDosDevices()).filter(isLogicalOrPhysicalDrive);
+const dosDevices = await windrive.getDosDevices();
+const filteredDevices = Object.keys(dosDevices).filter(isLogicalOrPhysicalDrive);
 const allPerformance = await Promise.all(filteredDevices.map(dev => windrive.getDevicePerformance(dev)));
 ```
 
