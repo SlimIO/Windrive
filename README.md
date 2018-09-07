@@ -83,6 +83,18 @@ interface DosDevices {
 }
 ```
 
+For example, you can filter the result to retrieves Logical and **Physical** Drives information & performance:
+```js
+const isDisk = /^[A-Za-z]{1}:{1}$/;
+const isPhysicalDrive = /^PhysicalDrive[0-9]+$/;
+function isLogicalOrPhysicalDrive(driveNameStr) {
+    return isDisk.test(driveNameStr) || isPhysicalDrive.test(driveNameStr) ? true : false;
+}
+
+const filteredDevices = (await windrive.getDosDevices()).filter(isLogicalOrPhysicalDrive);
+const allPerformance = await Promise.all(filteredDevices.map(dev => windrive.getDevicePerformance(dev)));
+```
+
 ### getDevicePerformance(deviceName: string): Promise<DevicePerformance>
 Provides disk performance information about a given device (drive). Return a DevicePerformance Object.
 
