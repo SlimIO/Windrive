@@ -144,6 +144,7 @@ Describes the geometry of disk devices and media. Return a DeviceGeometry Object
 
 ```ts
 interface DeviceGeometry {
+    diskSize: number;
     mediaType: number;
     cylinders: number;
     bytesPerSector: number;

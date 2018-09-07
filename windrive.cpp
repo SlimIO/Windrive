@@ -39,6 +39,7 @@ struct DiskPerformance {
 };
 
 struct DeviceGeometry {
+    LONGLONG diskSize;
     double mediaType;
     LONGLONG cylinders;
     DWORD tracksPerCylinder;
@@ -397,7 +398,7 @@ class DeviceGeometryWorker : public AsyncWorker {
         LPCSTR wszDrive = tDriveName.c_str();
 
         // Retrieve Typedef struct DISK_GEOMETRY
-        DISK_GEOMETRY pdg = { 0 };
+        DISK_GEOMETRY_EX pdg = { 0 };
 
         HANDLE hDevice = CreateFileA(
             wszDrive, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL
@@ -410,21 +411,23 @@ class DeviceGeometryWorker : public AsyncWorker {
 
         DWORD junk = 0;
         bool bResult = DeviceIoControl(
-            hDevice, IOCTL_STORAGE_GET_MEDIA_TYPES, NULL, 0, &pdg, sizeof(pdg), &junk, (LPOVERLAPPED) NULL
+            hDevice, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, NULL, 0, &pdg, sizeof(pdg), &junk, (LPOVERLAPPED) NULL
         );     
         CloseHandle(hDevice);
 
-        sDeviceGeometry.mediaType = (double) pdg.MediaType;
-        sDeviceGeometry.cylinders = pdg.Cylinders.QuadPart;
-        sDeviceGeometry.bytesPerSector = pdg.BytesPerSector;
-        sDeviceGeometry.sectorsPerTrack = pdg.SectorsPerTrack;
-        sDeviceGeometry.tracksPerCylinder = pdg.TracksPerCylinder;
+        sDeviceGeometry.diskSize = pdg.DiskSize.QuadPart;
+        sDeviceGeometry.mediaType = (double) pdg.Geometry.MediaType;
+        sDeviceGeometry.cylinders = pdg.Geometry.Cylinders.QuadPart;
+        sDeviceGeometry.bytesPerSector = pdg.Geometry.BytesPerSector;
+        sDeviceGeometry.sectorsPerTrack = pdg.Geometry.SectorsPerTrack;
+        sDeviceGeometry.tracksPerCylinder = pdg.Geometry.TracksPerCylinder;
     }
 
     void OnOK() {
         HandleScope scope(Env());
 
         Object ret = Object::New(Env());
+        ret.Set("diskSize", sDeviceGeometry.diskSize);
         ret.Set("mediaType", sDeviceGeometry.mediaType);
         ret.Set("cylinders", sDeviceGeometry.cylinders);
         ret.Set("bytesPerSector", sDeviceGeometry.bytesPerSector);

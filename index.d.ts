@@ -26,6 +26,7 @@ declare namespace Windrive {
     }
 
     export interface DeviceGeometry {
+        diskSize: number;
         mediaType: number;
         cylinders: number;
         bytesPerSector: number;
