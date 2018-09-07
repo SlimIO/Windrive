@@ -30,7 +30,8 @@
     "url": "git+https://github.com/SlimIO/WinDisk.git"
   },
   "keywords": [],
-  "author": "",
+  "author": "SlimIO",
+  "private": false,
   "license": "MIT",
   "gypfile": true,
   "bugs": {
