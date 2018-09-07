@@ -322,6 +322,8 @@ Value getDevicePerformance(const CallbackInfo& info) {
 
 /*
  * Retrieve Dos Devices Worker
+ * 
+ * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/winbase/nf-winbase-querydosdevicea
  */
 class DosDevicesWorker : public AsyncWorker {
     public:
