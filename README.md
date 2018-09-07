@@ -200,6 +200,7 @@ Media type enumeration can be retrieved [here](https://msdn.microsoft.com/en-us/
 
 Before building the project, be sure to get the following npm package installed:
 
+- Install (or upgrade to) NodeJS v10+ and npm v6+
 - [Windows build tools](https://www.npmjs.com/package/windows-build-tools)
 
 Then, execute these commands in order:
@@ -209,6 +210,19 @@ $ npm install
 $ npx node-gyp configure
 $ npx node-gyp build
 ```
+
+## Available commands
+
+All projects commands are described here:
+
+| command | description |
+| --- | --- |
+| npm run prebuild | Generate addon prebuild |
+| npm run doc | Generate JSDoc .HTML documentation (in the /docs root directory) |
+| npm run coverage | Generate coverage of tests |
+| npm run report | Generate .HTML report of tests coverage |
+
+> the report command have to be triggered after the coverage command.
 
 ## Roadmap 1.2.0
 
