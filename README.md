@@ -186,16 +186,16 @@ interface DeviceGeometry {
 
 ## How to build the project
 
-Before building the project, be sure to get the following installed:
+Before building the project, be sure to get the following npm package installed:
 
 - [Windows build tools](https://www.npmjs.com/package/windows-build-tools)
 
-And execute these commands:
+Then, execute these commands in order:
 
 ```bash
 $ npm install
-$ node-gyp configure
-$ node-gyp build
+$ npx node-gyp configure
+$ npx node-gyp build
 ```
 
 ## Roadmap 1.1.0
