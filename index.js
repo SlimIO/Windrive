@@ -1,5 +1,5 @@
 // Require Native addon
-const windrive = require('bindings')('windrive.node');
+const windrive = require("bindings")("windrive.node");
 
 /**
  * @async
@@ -111,4 +111,4 @@ module.exports = {
     getDevicePerformance,
     getDiskCacheInformation,
     getDeviceGeometry
-}
+};
