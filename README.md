@@ -60,7 +60,19 @@ interface LogicalDrive {
 }
 ```
 
-> CDROM Type have no Free Spaces or anything (only name and type are returned).
+Possible drive types are:
+
+| type | description |
+| --- | --- |
+| UNKNOWN | The drive type cannot be determined. |
+| NO_ROOT_DIR | The root path is invalid; for example, there is no volume mounted at the specified path. |
+| REMOVABLE | The drive has removable media; for example, a floppy drive, thumb drive, or flash card reader. |
+| FIXED | The drive has fixed media; for example, a hard disk drive or flash drive. |
+| REMOTE | The drive is a remote (network) drive. |
+| CDROM | The drive is a CD-ROM drive. |
+| RAMDISK | The drive is a RAM disk. |
+
+> CDROM Type have no FreeSpaces (only name and type are returned).
 
 ### getDosDevices(): Promise<DosDevices>
 Retrieves information about MS-DOS device names. Return an key -> value Object where the key is the device name and value the path to the device.
