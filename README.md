@@ -227,5 +227,4 @@ All projects commands are described here:
 ## Roadmap 1.2.0
 
 - Push tests coverage to 100%
-- Improve error handling in CPP with GetLastError() & FormatMessage()
 - Add CPPLint to lint cpp files

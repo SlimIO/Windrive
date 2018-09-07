@@ -82,6 +82,13 @@ string guidToString(GUID guid) {
 	return string(guid_cstr);
 }
 
+string getLastErrorMessage() {
+    char err[256];
+    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(),
+                  MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), err, 255, NULL);
+    return string(err);
+}
+
 
 /*
  * Asycnronous Worker to Retrieve Windows Logical Drives
@@ -106,8 +113,13 @@ class LogicalDriveWorker : public AsyncWorker {
         DWORD dwResult = GetLogicalDriveStrings(DRIVER_LENGTH, szBuffer);
 
         // Throw error if we fail to retrieve result
-        if (dwResult == 0 || dwResult > DRIVER_LENGTH) {
-            return SetError("Failed to retrieve logical drives names!");
+        if (dwResult == 0) {
+            return SetError("Unable to find any Logical Drive. GetLogicalDriveStrings() has returned 0 byte.");
+        }
+        else if (dwResult > DRIVER_LENGTH) {
+            stringstream error;
+            error << "Insufficient buffer size (" << DRIVER_LENGTH << "). GetLogicalDriveStrings() returned " << dwResult << " bytes!" << endl;
+            return SetError(error.str());
         }
 
         TCHAR *lpRootPathName = szBuffer;
@@ -252,13 +264,18 @@ class DiskPerformanceWorker : public AsyncWorker {
 
         // cannot open the drive
         if (hDevice == INVALID_HANDLE_VALUE) {
-            return SetError("Invalid Handle value for indicated Drive!");
+            stringstream error;
+            error << "CreateFileA() returned INVALID_HANDLE_VALUE for Device (Drive): " << wszDrive << endl;
+            return SetError(error.str());
         }
 
         DWORD junk = 0;
         bool bResult = DeviceIoControl(
             hDevice, IOCTL_DISK_PERFORMANCE, NULL, 0, &pdg, sizeof(pdg), &junk, (LPOVERLAPPED) NULL
-        );     
+        );
+        if (!bResult) {
+            return SetError(getLastErrorMessage());
+        }
         CloseHandle(hDevice);
 
         // Transform WCHAR to _bstr_t (to be translated into a const char*)
@@ -423,13 +440,18 @@ class DeviceGeometryWorker : public AsyncWorker {
 
         // cannot open the drive
         if (hDevice == INVALID_HANDLE_VALUE) {
-            return SetError("Invalid Handle value for indicated Drive!");
+            stringstream error;
+            error << "CreateFileA() returned INVALID_HANDLE_VALUE for Device (Drive): " << wszDrive << endl;
+            return SetError(error.str());
         }
 
         DWORD junk = 0;
         bool bResult = DeviceIoControl(
             hDevice, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, NULL, 0, &pdg, sizeof(pdg), &junk, (LPOVERLAPPED) NULL
-        );     
+        );
+        if (!bResult) {
+            return SetError(getLastErrorMessage());
+        }
         CloseHandle(hDevice);
 
         // Retrieve Detection & Partition information
@@ -576,13 +598,18 @@ class DiskCacheWorker : public AsyncWorker {
 
         // cannot open the drive
         if (hDevice == INVALID_HANDLE_VALUE) {
-            return SetError("Invalid Handle value for indicated Drive!");
+            stringstream error;
+            error << "CreateFileA() returned INVALID_HANDLE_VALUE for Device (Drive): " << wszDrive << endl;
+            return SetError(error.str());
         }
 
         DWORD junk = 0;
-        DeviceIoControl(
+        bool bResult = DeviceIoControl(
             hDevice, IOCTL_DISK_GET_CACHE_INFORMATION, NULL, 0, &pdg, sizeof(pdg), &junk, (LPOVERLAPPED) NULL
-        );     
+        );
+        if (!bResult) {
+            return SetError(getLastErrorMessage());
+        }  
         CloseHandle(hDevice);
 
         sDiskCacheInformation.parametersSavable = pdg.ParametersSavable;
