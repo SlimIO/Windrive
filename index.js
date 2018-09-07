@@ -1,5 +1,5 @@
 // Require Native addon
-const windrive = require("./build/Release/windrive.node");
+const windrive = require('bindings')('windrive.node');
 
 /**
  * @async
@@ -57,8 +57,58 @@ function getDosDevices() {
     });
 }
 
+/**
+ * @async
+ * @function getDeviceGeometry
+ * @param {!String} driveName driveName
+ * @return {Promise<Windrive.DeviceGeometry>}
+ */
+function getDeviceGeometry(driveName) {
+    if (typeof driveName !== "string") {
+        throw new TypeError("driveName should be typeof string!");
+    }
+    if (driveName.charAt(2) === "\\") {
+        driveName = driveName.substr(0, driveName.length - 1);
+    }
+
+    return new Promise((resolve, reject) => {
+        windrive.getDeviceGeometry(driveName, (error, geometry) => {
+            if (error) {
+                return reject(error);
+            }
+            resolve(geometry);
+        });
+    });
+}
+
+/**
+ * @async
+ * @function getDiskCacheInformation
+ * @param {!String} driveName driveName
+ * @return {Promise<Windrive.DiskCacheInformation>}
+ */
+function getDiskCacheInformation(driveName) {
+    if (typeof driveName !== "string") {
+        throw new TypeError("driveName should be typeof string!");
+    }
+    if (driveName.charAt(2) === "\\") {
+        driveName = driveName.substr(0, driveName.length - 1);
+    }
+
+    return new Promise((resolve, reject) => {
+        windrive.getDiskCacheInformation(driveName, (error, cacheinfo) => {
+            if (error) {
+                return reject(error);
+            }
+            resolve(cacheinfo);
+        });
+    });
+}
+
 module.exports = {
     getLogicalDrives,
     getDosDevices,
-    getDevicePerformance
+    getDevicePerformance,
+    getDiskCacheInformation,
+    getDeviceGeometry
 }

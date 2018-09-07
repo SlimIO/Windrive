@@ -1,0 +1,10 @@
+tests
+coverage
+docs
+.editorconfig
+.eslintrc
+.nyc_output
+CONTRIBUTING.md
+build/
+.vscode/
+.vscode

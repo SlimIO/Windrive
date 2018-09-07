@@ -20,10 +20,5 @@ $ node-gyp build
 
 ## TODO
 
-- Prepare npm package (export with bindings).
-- Add prebuilt (prebuildify)
-- Add Device Geometry Performance.
 - Add test.
-- Add ESLint & all required configuration for JavaScript.
-- Add JSDoc.
 - Add CPPLint to lint cpp files

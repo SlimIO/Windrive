@@ -1,0 +1,6 @@
+{
+    "extends": "@slimio/eslint-config",
+    "parserOptions": {
+        "ecmaVersion": 2018
+    }
+}

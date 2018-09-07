@@ -45,6 +45,41 @@ struct DiskPerformance {
 };
 
 /*
+ * Disk & Media Geometry
+ */
+struct DeviceGeometry {
+    double mediaType;
+    LONGLONG cylinders;
+    DWORD tracksPerCylinder;
+    DWORD sectorsPerTrack;
+    DWORD bytesPerSector;
+};
+
+/*
+ * Disk Cache Information struct
+ */
+struct DiskCacheInformation {
+    bool parametersSavable;
+    bool readCacheEnabled;
+    bool writeCacheEnabled;
+    string readRetentionPriority;
+    double writeRetentionPriority;
+    WORD disablePrefetchTransferLength;
+    bool prefetchScalar;
+    union {
+        struct {
+            WORD minimum;
+            WORD maximum;
+            WORD maximumBlocks;
+        } scalarPrefetch;
+        struct {
+            WORD minimum;
+            WORD maximum;
+        } blockPrefetch;
+    };
+};
+
+/*
  * Asycnronous Worker to Retrieve Windows Logical Drives
  * 
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-getlogicaldrivestringsw
@@ -347,14 +382,221 @@ Value getDosDevices(const CallbackInfo& info) {
     return env.Undefined();
 }
 
+/*
+ * Device Geometry Worker
+ */
+class DeviceGeometryWorker : public AsyncWorker {
+    public:
+        DeviceGeometryWorker(Function& callback, string driveName) : AsyncWorker(callback), driveName(driveName) {}
+        ~DeviceGeometryWorker() {}
+
+    private:
+        string driveName;
+        DeviceGeometry sDeviceGeometry;
+
+    // This code will be executed on the worker thread
+    void Execute() {
+        stringstream ss;
+        ss << "\\\\.\\" << driveName; // Concat these weird carac (they are required to work).
+        string tDriveName = ss.str();
+        LPCSTR wszDrive = tDriveName.c_str();
+
+        // Retrieve Typedef struct DISK_GEOMETRY
+        DISK_GEOMETRY pdg = { 0 };
+
+        HANDLE hDevice = CreateFileA(
+            wszDrive, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL
+        );              
+
+        // cannot open the drive
+        if (hDevice == INVALID_HANDLE_VALUE) {
+            return SetError("Invalid Handle value for indicated Drive!");
+        }
+
+        DWORD junk = 0;
+        bool bResult = DeviceIoControl(
+            hDevice, IOCTL_STORAGE_GET_MEDIA_TYPES, NULL, 0, &pdg, sizeof(pdg), &junk, (LPOVERLAPPED) NULL
+        );     
+        CloseHandle(hDevice);
+
+        sDeviceGeometry.mediaType = (double) pdg.MediaType;
+        sDeviceGeometry.cylinders = pdg.Cylinders.QuadPart;
+        sDeviceGeometry.bytesPerSector = pdg.BytesPerSector;
+        sDeviceGeometry.sectorsPerTrack = pdg.SectorsPerTrack;
+        sDeviceGeometry.tracksPerCylinder = pdg.TracksPerCylinder;
+    }
+
+    void OnOK() {
+        HandleScope scope(Env());
+        Object ret = Object::New(Env());
+        ret.Set("mediaType", sDeviceGeometry.mediaType);
+        ret.Set("cylinders", sDeviceGeometry.cylinders);
+        ret.Set("bytesPerSector", sDeviceGeometry.bytesPerSector);
+        ret.Set("sectorsPerTrack", sDeviceGeometry.sectorsPerTrack);
+        ret.Set("tracksPerCylinder", sDeviceGeometry.tracksPerCylinder);
+
+        Callback().Call({Env().Null(), ret});
+    }
+
+};
+
+/*
+ * Retrieve Device Geometry
+ */
+Value getDeviceGeometry(const CallbackInfo& info) {
+    Env env = info.Env();
+
+    // Check argument length!
+    if (info.Length() < 2) {
+        Error::New(env, "Wrong number of argument provided!").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    // callback should be typeof Napi::String
+    if (!info[1].IsFunction()) {
+        Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    // Execute worker thread!
+    string driveName = info[0].As<String>().Utf8Value();
+    Function cb = info[1].As<Function>();
+    (new DeviceGeometryWorker(cb, driveName))->Queue();
+
+    return env.Undefined();
+}
+
+
+/*
+ * Retrieve Dos Devices Worker
+ */
+class DiskCacheWorker : public AsyncWorker {
+    public:
+        DiskCacheWorker(Function& callback, string driveName) : AsyncWorker(callback), driveName(driveName) {}
+        ~DiskCacheWorker() {}
+
+    private:
+        string driveName;
+        DiskCacheInformation sDiskCacheInformation;
+
+    // This code will be executed on the worker thread
+    void Execute() {
+        stringstream ss;
+        ss << "\\\\.\\" << driveName; // Concat these weird carac (they are required to work).
+        string tDriveName = ss.str();
+        LPCSTR wszDrive = tDriveName.c_str();
+
+        // Retrieve Typedef struct DISK_GEOMETRY
+        DISK_CACHE_INFORMATION pdg = { 0 };
+
+        HANDLE hDevice = CreateFileA(
+            wszDrive, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL
+        );              
+
+        // cannot open the drive
+        if (hDevice == INVALID_HANDLE_VALUE) {
+            return SetError("Invalid Handle value for indicated Drive!");
+        }
+
+        DWORD junk = 0;
+        DeviceIoControl(
+            hDevice, IOCTL_DISK_GET_CACHE_INFORMATION, NULL, 0, &pdg, sizeof(pdg), &junk, (LPOVERLAPPED) NULL
+        );     
+        CloseHandle(hDevice);
+
+        sDiskCacheInformation.parametersSavable = pdg.ParametersSavable;
+        sDiskCacheInformation.readCacheEnabled = pdg.ReadCacheEnabled;
+        sDiskCacheInformation.writeCacheEnabled = pdg.WriteCacheEnabled;
+        sDiskCacheInformation.prefetchScalar = pdg.PrefetchScalar;
+        switch(pdg.ReadRetentionPriority) {
+            case EqualPriority:
+                sDiskCacheInformation.readRetentionPriority = string("EqualPriority");
+                break;
+            case KeepPrefetchedData:
+                sDiskCacheInformation.readRetentionPriority = string("KeepPrefetchedData");
+                break;
+            case KeepReadData:
+                sDiskCacheInformation.readRetentionPriority = string("KeepReadData");
+                break;
+        }
+        sDiskCacheInformation.writeRetentionPriority = (double) pdg.WriteRetentionPriority;
+        sDiskCacheInformation.disablePrefetchTransferLength = pdg.DisablePrefetchTransferLength;
+
+        if (pdg.PrefetchScalar) {
+            sDiskCacheInformation.scalarPrefetch.minimum = pdg.ScalarPrefetch.Minimum;
+            sDiskCacheInformation.scalarPrefetch.maximum = pdg.ScalarPrefetch.Maximum;
+            sDiskCacheInformation.scalarPrefetch.maximumBlocks = pdg.ScalarPrefetch.MaximumBlocks;
+        }
+        else {
+            sDiskCacheInformation.blockPrefetch.minimum = pdg.BlockPrefetch.Minimum;
+            sDiskCacheInformation.blockPrefetch.maximum = pdg.BlockPrefetch.Maximum;
+        }
+    }
+
+    void OnOK() {
+        HandleScope scope(Env());
+        Object ret = Object::New(Env());
+
+        ret.Set("parametersSavable", Boolean::New(Env(), sDiskCacheInformation.parametersSavable));
+        ret.Set("readCacheEnabled", Boolean::New(Env(), sDiskCacheInformation.readCacheEnabled));
+        ret.Set("writeCacheEnabled", Boolean::New(Env(), sDiskCacheInformation.writeCacheEnabled));
+        ret.Set("prefetchScalar", Boolean::New(Env(), sDiskCacheInformation.prefetchScalar));
+        ret.Set("readRetentionPriority", sDiskCacheInformation.readRetentionPriority);
+        ret.Set("writeRetentionPriority", sDiskCacheInformation.writeRetentionPriority);
+        ret.Set("disablePrefetchTransferLength", sDiskCacheInformation.disablePrefetchTransferLength);
+        Object Block = Object::New(Env());
+        if (sDiskCacheInformation.prefetchScalar) {
+            Block.Set("minimum", sDiskCacheInformation.scalarPrefetch.minimum);
+            Block.Set("maximum", sDiskCacheInformation.scalarPrefetch.maximum);
+            Block.Set("maximumBlocks", sDiskCacheInformation.scalarPrefetch.maximumBlocks);
+            ret.Set("scalarPrefetch", Block);
+        }
+        else {
+            Block.Set("minimum", sDiskCacheInformation.blockPrefetch.minimum);
+            Block.Set("maximum", sDiskCacheInformation.blockPrefetch.maximum);
+            ret.Set("blockPrefetch", Block);
+        }
+
+        Callback().Call({Env().Null(), ret});
+    }
+
+};
+
+/*
+ * Retrieve Dos Devices
+ */
+Value getDiskCacheInformation(const CallbackInfo& info) {
+    Env env = info.Env();
+
+    // Check argument length!
+    if (info.Length() < 2) {
+        Error::New(env, "Wrong number of argument provided!").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    // callback should be typeof Napi::String
+    if (!info[1].IsFunction()) {
+        Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    // Execute worker thread!
+    string driveName = info[0].As<String>().Utf8Value();
+    Function cb = info[1].As<Function>();
+    (new DiskCacheWorker(cb, driveName))->Queue();
+
+    return env.Undefined();
+}
+
 // Initialize Native Addon
 Object Init(Env env, Object exports) {
 
     // Setup methods
-    // TODO: Launch with AsyncWorker to avoid event loop starvation
     exports.Set("getLogicalDrives", Function::New(env, getLogicalDrives));
     exports.Set("getDevicePerformance", Function::New(env, getDevicePerformance));
+    exports.Set("getDeviceGeometry", Function::New(env, getDeviceGeometry));
     exports.Set("getDosDevices", Function::New(env, getDosDevices));
+    exports.Set("getDiskCacheInformation", Function::New(env, getDiskCacheInformation));
 
     return exports;
 }
