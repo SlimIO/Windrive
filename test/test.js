@@ -5,6 +5,9 @@ const is = require("@sindresorhus/is");
 // Require package
 const windrive = require("../index");
 
+// CONSTANTS
+const TYPE_ERROR = "driveName should be typeof string!";
+
 // Test method getLogicalDrives
 test("getLogicalDrives()", async function getLogicalDrives(t) {
     t.is(Reflect.has(windrive, "getLogicalDrives"), true);
@@ -43,6 +46,12 @@ test("getDevicePerformance()", async function getDevicePerformance(t) {
     t.is(Reflect.has(windrive, "getLogicalDrives"), true);
     t.is(Reflect.has(windrive, "getDevicePerformance"), true);
 
+    // Method should throw TypeError on non-string arg
+    const error = t.throws(() => {
+        windrive.getDevicePerformance(5);
+    }, TypeError);
+    t.is(error.message, TYPE_ERROR);
+
     const logicalDrives = await windrive.getLogicalDrives();
     t.is(is.array(logicalDrives), true);
 
@@ -70,6 +79,12 @@ test("getDevicePerformance()", async function getDevicePerformance(t) {
 test("getDeviceGeometry()", async function getDevicePerformance(t) {
     t.is(Reflect.has(windrive, "getLogicalDrives"), true);
     t.is(Reflect.has(windrive, "getDeviceGeometry"), true);
+
+    // Method should throw TypeError on non-string arg
+    const error = t.throws(() => {
+        windrive.getDeviceGeometry(5);
+    }, TypeError);
+    t.is(error.message, TYPE_ERROR);
 
     const logicalDrives = await windrive.getLogicalDrives();
     t.is(is.array(logicalDrives), true);
@@ -99,6 +114,12 @@ test("getDeviceGeometry()", async function getDevicePerformance(t) {
 test("getDiskCacheInformation()", async function getDevicePerformance(t) {
     t.is(Reflect.has(windrive, "getLogicalDrives"), true);
     t.is(Reflect.has(windrive, "getDiskCacheInformation"), true);
+
+    // Method should throw TypeError on non-string arg
+    const error = t.throws(() => {
+        windrive.getDiskCacheInformation(5);
+    }, TypeError);
+    t.is(error.message, TYPE_ERROR);
 
     const logicalDrives = await windrive.getLogicalDrives();
     t.is(is.array(logicalDrives), true);
