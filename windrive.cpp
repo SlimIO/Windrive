@@ -82,6 +82,9 @@ string guidToString(GUID guid) {
 	return string(guid_cstr);
 }
 
+/*
+ * Retrieve last message error with code of GetLastError()
+ */
 string getLastErrorMessage() {
     char err[256];
     FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(),
