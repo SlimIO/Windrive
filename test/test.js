@@ -18,12 +18,14 @@ test("getLogicalDrives()", async function getLogicalDrives(assert) {
     for (const drive of logicalDrives) {
         assert.is(is.plainObject(drive), true);
         assert.is(is.string(drive.name), true);
-        assert.is(is.number(drive.bytesPerSect), true);
         assert.is(is.string(drive.type), true);
-        assert.is(is.number(drive.freeClusters), true);
-        assert.is(is.number(drive.totalClusters), true);
-        assert.is(is.number(drive.usedClusterPourcent), true);
-        assert.is(is.number(drive.freeClusterPourcent), true);
+        if (drive.type !== "CDROM") {
+            assert.is(is.number(drive.bytesPerSect), true);
+            assert.is(is.number(drive.freeClusters), true);
+            assert.is(is.number(drive.totalClusters), true);
+            assert.is(is.number(drive.usedClusterPourcent), true);
+            assert.is(is.number(drive.freeClusterPourcent), true);
+        }
     }
 });
 

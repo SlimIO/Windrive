@@ -4,12 +4,12 @@ declare namespace Windrive {
 
     export interface LogicalDrive {
         name: string;
-        bytesPerSect: number;
         type: LogicalDriveType;
-        freeClusters: number;
-        totalClusters: number;
-        usedClusterPourcent: number;
-        freeClusterPourcent: number;
+        bytesPerSect?: number;
+        freeClusters?: number;
+        totalClusters?: number;
+        usedClusterPourcent?: number;
+        freeClusterPourcent?: number;
     }
 
     export interface DevicePerformance {

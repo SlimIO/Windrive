@@ -3,95 +3,17 @@
 #include <sstream>
 #include <string>
 #include "napi.h"
+#include "slimio.h"
 
 using namespace std;
 using namespace Napi;
+using namespace Slimio;
 
 /*
  * Buffer length for logical drives names
  * TODO: Best value ? (120 is almost good for 30 disks)
  */
-#define DRIVER_LENGTH 120
-
-struct LogicalDrive {
-    TCHAR* name;
-    string driveType;
-    DWORD bytesPerSect;
-    DWORD freeClusters;
-    DWORD totalClusters;
-    double usedClusterPourcent;
-    double freeClusterPourcent;
-};
-
-struct DiskPerformance {
-    LONGLONG bytesRead;
-    LONGLONG bytesWritten;
-    LONGLONG readTime;
-    LONGLONG writeTime;
-    LONGLONG idleTime;
-    DWORD readCount;
-    DWORD writeCount;
-    DWORD queueDepth;
-    DWORD splitCount;
-    LONGLONG queryTime;
-    DWORD storageDeviceNumber;
-    const char* storageManagerName;
-};
-
-struct DeviceGeometry {
-    LONGLONG diskSize;
-    double mediaType;
-    LONGLONG cylinders;
-    DWORD tracksPerCylinder;
-    DWORD sectorsPerTrack;
-    DWORD bytesPerSector;
-};
-
-struct DiskCacheInformation {
-    bool parametersSavable;
-    bool readCacheEnabled;
-    bool writeCacheEnabled;
-    string readRetentionPriority;
-    double writeRetentionPriority;
-    WORD disablePrefetchTransferLength;
-    bool prefetchScalar;
-    union {
-        struct {
-            WORD minimum;
-            WORD maximum;
-            WORD maximumBlocks;
-        } scalarPrefetch;
-        struct {
-            WORD minimum;
-            WORD maximum;
-        } blockPrefetch;
-    };
-};
-
-/*
- * Convert GUID to std::string
- */
-string guidToString(GUID guid) {
-	char guid_cstr[39];
-	snprintf(guid_cstr, sizeof(guid_cstr),
-	         "{%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
-	         guid.Data1, guid.Data2, guid.Data3,
-	         guid.Data4[0], guid.Data4[1], guid.Data4[2], guid.Data4[3],
-	         guid.Data4[4], guid.Data4[5], guid.Data4[6], guid.Data4[7]);
-
-	return string(guid_cstr);
-}
-
-/*
- * Retrieve last message error with code of GetLastError()
- */
-string getLastErrorMessage() {
-    char err[256];
-    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(),
-                  MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), err, 255, NULL);
-    return string(err);
-}
-
+#define DRIVER_BUFFER_BYTE_LENGTH 120
 
 /*
  * Asycnronous Worker to Retrieve Windows Logical Drives
@@ -106,22 +28,31 @@ class LogicalDriveWorker : public AsyncWorker {
         ~LogicalDriveWorker() {}
 
     private:
+        struct LogicalDrive {
+            TCHAR* name;
+            string driveType;
+            DWORD bytesPerSect;
+            DWORD freeClusters;
+            DWORD totalClusters;
+            double usedClusterPourcent;
+            double freeClusterPourcent;
+        };
         vector<LogicalDrive> vLogicalDrives;
 
     // This code will be executed on the worker thread
     void Execute() {
         BOOL success;
         UINT driveType;
-        TCHAR szBuffer[DRIVER_LENGTH];
-        DWORD dwResult = GetLogicalDriveStrings(DRIVER_LENGTH, szBuffer);
+        TCHAR szBuffer[DRIVER_BUFFER_BYTE_LENGTH];
+        DWORD dwResult = GetLogicalDriveStrings(DRIVER_BUFFER_BYTE_LENGTH, szBuffer);
 
         // Throw error if we fail to retrieve result
         if (dwResult == 0) {
             return SetError("Unable to find any Logical Drive. GetLogicalDriveStrings() has returned 0 byte.");
         }
-        else if (dwResult > DRIVER_LENGTH) {
+        else if (dwResult > DRIVER_BUFFER_BYTE_LENGTH) {
             stringstream error;
-            error << "Insufficient buffer size (" << DRIVER_LENGTH << "). GetLogicalDriveStrings() returned " << dwResult << " bytes!" << endl;
+            error << "Insufficient buffer size (" << DRIVER_BUFFER_BYTE_LENGTH << "). GetLogicalDriveStrings() returned " << dwResult << " bytes!" << endl;
             return SetError(error.str());
         }
 
@@ -196,11 +127,13 @@ class LogicalDriveWorker : public AsyncWorker {
 
             currJSDrive.Set("name", currDrive.name);
             currJSDrive.Set("type", currDrive.driveType);
-            currJSDrive.Set("bytesPerSect", currDrive.bytesPerSect);
-            currJSDrive.Set("freeClusters", currDrive.freeClusters);
-            currJSDrive.Set("totalClusters", currDrive.totalClusters);
-            currJSDrive.Set("usedClusterPourcent", currDrive.usedClusterPourcent);
-            currJSDrive.Set("freeClusterPourcent", currDrive.freeClusterPourcent);
+            if (currDrive.driveType != string("CDROM")) {
+                currJSDrive.Set("bytesPerSect", currDrive.bytesPerSect);
+                currJSDrive.Set("freeClusters", currDrive.freeClusters);
+                currJSDrive.Set("totalClusters", currDrive.totalClusters);
+                currJSDrive.Set("usedClusterPourcent", currDrive.usedClusterPourcent);
+                currJSDrive.Set("freeClusterPourcent", currDrive.freeClusterPourcent);
+            }
         }
         Callback().Call({Env().Null(), ret});
     }
@@ -249,72 +182,66 @@ class DiskPerformanceWorker : public AsyncWorker {
 
     private:
         string driveName;
-        DiskPerformance sDiskPerformance;
+        DISK_PERFORMANCE sDiskPerformance = { 0 };
 
     // This code will be executed on the worker thread
     void Execute() {
         stringstream ss;
         ss << "\\\\.\\" << driveName; // Concat these weird carac (they are required to work).
         string tDriveName = ss.str();
-        LPCSTR wszDrive = tDriveName.c_str();
+        LPCSTR wDriveName = tDriveName.c_str();
 
-        // Retrieve Typedef struct DISK_PERFORMANCE
-        DISK_PERFORMANCE pdg = { 0 };
-
+        // Open device handle!
         HANDLE hDevice = CreateFileA(
-            wszDrive, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL
+            wDriveName, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL
         );              
 
-        // cannot open the drive
+        // Cannot open the drive
         if (hDevice == INVALID_HANDLE_VALUE) {
             stringstream error;
-            error << "CreateFileA() returned INVALID_HANDLE_VALUE for Device (Drive): " << wszDrive << endl;
+            error << "CreateFileA() INVALID_HANDLE_VALUE for device " << driveName << " - " << getLastErrorMessage();
             return SetError(error.str());
         }
 
         DWORD junk = 0;
-        bool bResult = DeviceIoControl(
-            hDevice, IOCTL_DISK_PERFORMANCE, NULL, 0, &pdg, sizeof(pdg), &junk, (LPOVERLAPPED) NULL
+        bool success = DeviceIoControl(
+            hDevice,
+            IOCTL_DISK_PERFORMANCE,
+            NULL,
+            0,
+            &sDiskPerformance,
+            sizeof(sDiskPerformance),
+            &junk,
+            (LPOVERLAPPED) NULL
         );
-        if (!bResult) {
-            return SetError(getLastErrorMessage());
-        }
         CloseHandle(hDevice);
-
-        // Transform WCHAR to _bstr_t (to be translated into a const char*)
-        // @header: comdef.h
-        _bstr_t charStorageManagerName(pdg.StorageManagerName);
-
-        sDiskPerformance.bytesRead = pdg.BytesRead.QuadPart;
-        sDiskPerformance.bytesWritten = pdg.BytesWritten.QuadPart;
-        sDiskPerformance.readTime = pdg.ReadTime.QuadPart;
-        sDiskPerformance.writeTime = pdg.WriteTime.QuadPart;
-        sDiskPerformance.idleTime = pdg.IdleTime.QuadPart;
-        sDiskPerformance.readCount = pdg.ReadCount;
-        sDiskPerformance.writeCount = pdg.WriteCount;
-        sDiskPerformance.queueDepth = pdg.QueueDepth;
-        sDiskPerformance.splitCount = pdg.SplitCount;
-        sDiskPerformance.queryTime = pdg.QueryTime.QuadPart;
-        sDiskPerformance.storageDeviceNumber = pdg.StorageDeviceNumber;
-        sDiskPerformance.storageManagerName = (const char*) charStorageManagerName;
+        if (!success) {
+            stringstream error;
+            error << "IOCTL_DISK_PERFORMANCE failed with code (" << GetLastError() << ") - " << getLastErrorMessage();
+            return SetError(error.str());
+        }
     }
 
     void OnOK() {
         HandleScope scope(Env());
 
+        // Transform WCHAR to _bstr_t (to be translated into a const char*)
+        // @header: comdef.h
+        _bstr_t charStorageManagerName(sDiskPerformance.StorageManagerName);
+
         Object ret = Object::New(Env());
-        ret.Set("bytesRead", sDiskPerformance.bytesRead);
-        ret.Set("bytesWritten", sDiskPerformance.bytesWritten);
-        ret.Set("readTime", sDiskPerformance.readTime);
-        ret.Set("writeTime", sDiskPerformance.writeTime);
-        ret.Set("idleTime", sDiskPerformance.idleTime);
-        ret.Set("readCount", sDiskPerformance.readCount);
-        ret.Set("writeCount", sDiskPerformance.writeCount);
-        ret.Set("queueDepth", sDiskPerformance.queueDepth);
-        ret.Set("splitCount", sDiskPerformance.splitCount);
-        ret.Set("queryTime", sDiskPerformance.queryTime);
-        ret.Set("storageDeviceNumber", sDiskPerformance.storageDeviceNumber);
-        ret.Set("storageManagerName", sDiskPerformance.storageManagerName);
+        ret.Set("bytesRead", sDiskPerformance.BytesRead.QuadPart);
+        ret.Set("bytesWritten", sDiskPerformance.BytesRead.QuadPart);
+        ret.Set("readTime", sDiskPerformance.ReadTime.QuadPart);
+        ret.Set("writeTime", sDiskPerformance.WriteTime.QuadPart);
+        ret.Set("idleTime", sDiskPerformance.IdleTime.QuadPart);
+        ret.Set("readCount", sDiskPerformance.ReadCount);
+        ret.Set("writeCount", sDiskPerformance.WriteCount);
+        ret.Set("queueDepth", sDiskPerformance.QueueDepth);
+        ret.Set("splitCount", sDiskPerformance.SplitCount);
+        ret.Set("queryTime", sDiskPerformance.QueryTime.QuadPart);
+        ret.Set("storageDeviceNumber", sDiskPerformance.StorageDeviceNumber);
+        ret.Set("storageManagerName", (const char*) charStorageManagerName);
 
         Callback().Call({Env().Null(), ret});
     }
@@ -364,10 +291,19 @@ class DosDevicesWorker : public AsyncWorker {
     void Execute() {
         char logical[65536];
         char physical[65536];
+        DWORD ret;
 
-        QueryDosDeviceA(NULL, physical, sizeof(physical));
+        // Get Sizeof buffer for all devices!
+        ret = QueryDosDeviceA(NULL, physical, sizeof(physical));
+        if (ret == 0) {
+            return SetError(getLastErrorMessage());
+        }
+
         for (char *pos = physical; *pos; pos+=strlen(pos)+1) {
-            QueryDosDeviceA(pos, logical, sizeof(logical));
+            ret = QueryDosDeviceA(pos, logical, sizeof(logical));
+            if (ret == 0) {
+                continue;
+            }
             vDosDevices.push_back(make_pair(pos, logical));
         }    
     }
@@ -423,7 +359,7 @@ class DeviceGeometryWorker : public AsyncWorker {
 
     private:
         string driveName;
-        DeviceGeometry sDeviceGeometry;
+        DISK_GEOMETRY_EX sDeviceGeometry = { 0 };
         PDISK_DETECTION_INFO diskDetect;
         PDISK_PARTITION_INFO diskPartition;
 
@@ -434,9 +370,6 @@ class DeviceGeometryWorker : public AsyncWorker {
         string tDriveName = ss.str();
         LPCSTR wszDrive = tDriveName.c_str();
 
-        // Retrieve Typedef struct DISK_GEOMETRY
-        DISK_GEOMETRY_EX pdg = { 0 };
-
         HANDLE hDevice = CreateFileA(
             wszDrive, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL
         );              
@@ -444,41 +377,44 @@ class DeviceGeometryWorker : public AsyncWorker {
         // cannot open the drive
         if (hDevice == INVALID_HANDLE_VALUE) {
             stringstream error;
-            error << "CreateFileA() returned INVALID_HANDLE_VALUE for Device (Drive): " << wszDrive << endl;
+            error << "CreateFileA() INVALID_HANDLE_VALUE for device " << driveName << " - " << getLastErrorMessage();
             return SetError(error.str());
         }
 
         DWORD junk = 0;
         bool bResult = DeviceIoControl(
-            hDevice, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, NULL, 0, &pdg, sizeof(pdg), &junk, (LPOVERLAPPED) NULL
+            hDevice,
+            IOCTL_DISK_GET_DRIVE_GEOMETRY_EX,
+            NULL,
+            0,
+            &sDeviceGeometry,
+            sizeof(sDeviceGeometry),
+            &junk,
+            (LPOVERLAPPED) NULL
         );
         if (!bResult) {
-            return SetError(getLastErrorMessage());
+            CloseHandle(hDevice);
+            stringstream error;
+            error << "IOCTL_DISK_GET_DRIVE_GEOMETRY_EX failed with code (" << GetLastError() << ") - " << getLastErrorMessage();
+            return SetError(error.str());
         }
-        CloseHandle(hDevice);
 
         // Retrieve Detection & Partition information
-        diskDetect = DiskGeometryGetDetect(&pdg);
-        diskPartition = DiskGeometryGetPartition(&pdg);
-
-        sDeviceGeometry.diskSize = pdg.DiskSize.QuadPart;
-        sDeviceGeometry.mediaType = (double) pdg.Geometry.MediaType;
-        sDeviceGeometry.cylinders = pdg.Geometry.Cylinders.QuadPart;
-        sDeviceGeometry.bytesPerSector = pdg.Geometry.BytesPerSector;
-        sDeviceGeometry.sectorsPerTrack = pdg.Geometry.SectorsPerTrack;
-        sDeviceGeometry.tracksPerCylinder = pdg.Geometry.TracksPerCylinder;
+        diskDetect = DiskGeometryGetDetect(&sDeviceGeometry);
+        diskPartition = DiskGeometryGetPartition(&sDeviceGeometry);
+        CloseHandle(hDevice);
     }
 
     void OnOK() {
         HandleScope scope(Env());
 
         Object ret = Object::New(Env());
-        ret.Set("diskSize", sDeviceGeometry.diskSize);
-        ret.Set("mediaType", sDeviceGeometry.mediaType);
-        ret.Set("cylinders", sDeviceGeometry.cylinders);
-        ret.Set("bytesPerSector", sDeviceGeometry.bytesPerSector);
-        ret.Set("sectorsPerTrack", sDeviceGeometry.sectorsPerTrack);
-        ret.Set("tracksPerCylinder", sDeviceGeometry.tracksPerCylinder);
+        ret.Set("diskSize", sDeviceGeometry.DiskSize.QuadPart);
+        ret.Set("mediaType", (double) sDeviceGeometry.Geometry.MediaType);
+        ret.Set("cylinders", sDeviceGeometry.Geometry.Cylinders.QuadPart);
+        ret.Set("bytesPerSector", sDeviceGeometry.Geometry.BytesPerSector);
+        ret.Set("sectorsPerTrack", sDeviceGeometry.Geometry.SectorsPerTrack);
+        ret.Set("tracksPerCylinder", sDeviceGeometry.Geometry.TracksPerCylinder);
 
         // Partition
         Object partition = Object::New(Env());
@@ -583,7 +519,7 @@ class DiskCacheWorker : public AsyncWorker {
 
     private:
         string driveName;
-        DiskCacheInformation sDiskCacheInformation;
+        DISK_CACHE_INFORMATION sDiskCacheInformation = { 0 };
 
     // This code will be executed on the worker thread
     void Execute() {
@@ -592,9 +528,6 @@ class DiskCacheWorker : public AsyncWorker {
         string tDriveName = ss.str();
         LPCSTR wszDrive = tDriveName.c_str();
 
-        // Retrieve Typedef struct DISK_GEOMETRY
-        DISK_CACHE_INFORMATION pdg = { 0 };
-
         HANDLE hDevice = CreateFileA(
             wszDrive, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL
         );              
@@ -602,45 +535,26 @@ class DiskCacheWorker : public AsyncWorker {
         // cannot open the drive
         if (hDevice == INVALID_HANDLE_VALUE) {
             stringstream error;
-            error << "CreateFileA() returned INVALID_HANDLE_VALUE for Device (Drive): " << wszDrive << endl;
+            error << "CreateFileA() INVALID_HANDLE_VALUE for device " << driveName << " - " << getLastErrorMessage();
             return SetError(error.str());
         }
 
         DWORD junk = 0;
         bool bResult = DeviceIoControl(
-            hDevice, IOCTL_DISK_GET_CACHE_INFORMATION, NULL, 0, &pdg, sizeof(pdg), &junk, (LPOVERLAPPED) NULL
+            hDevice,
+            IOCTL_DISK_GET_CACHE_INFORMATION,
+            NULL,
+            0,
+            &sDiskCacheInformation,
+            sizeof(sDiskCacheInformation),
+            &junk,
+            (LPOVERLAPPED) NULL
         );
-        if (!bResult) {
-            return SetError(getLastErrorMessage());
-        }  
         CloseHandle(hDevice);
-
-        sDiskCacheInformation.parametersSavable = pdg.ParametersSavable;
-        sDiskCacheInformation.readCacheEnabled = pdg.ReadCacheEnabled;
-        sDiskCacheInformation.writeCacheEnabled = pdg.WriteCacheEnabled;
-        sDiskCacheInformation.prefetchScalar = pdg.PrefetchScalar;
-        switch(pdg.ReadRetentionPriority) {
-            case EqualPriority:
-                sDiskCacheInformation.readRetentionPriority = string("EqualPriority");
-                break;
-            case KeepPrefetchedData:
-                sDiskCacheInformation.readRetentionPriority = string("KeepPrefetchedData");
-                break;
-            case KeepReadData:
-                sDiskCacheInformation.readRetentionPriority = string("KeepReadData");
-                break;
-        }
-        sDiskCacheInformation.writeRetentionPriority = (double) pdg.WriteRetentionPriority;
-        sDiskCacheInformation.disablePrefetchTransferLength = pdg.DisablePrefetchTransferLength;
-
-        if (pdg.PrefetchScalar) {
-            sDiskCacheInformation.scalarPrefetch.minimum = pdg.ScalarPrefetch.Minimum;
-            sDiskCacheInformation.scalarPrefetch.maximum = pdg.ScalarPrefetch.Maximum;
-            sDiskCacheInformation.scalarPrefetch.maximumBlocks = pdg.ScalarPrefetch.MaximumBlocks;
-        }
-        else {
-            sDiskCacheInformation.blockPrefetch.minimum = pdg.BlockPrefetch.Minimum;
-            sDiskCacheInformation.blockPrefetch.maximum = pdg.BlockPrefetch.Maximum;
+        if (!bResult) {
+            stringstream error;
+            error << "IOCTL_DISK_GET_CACHE_INFORMATION failed with code (" << GetLastError() << ") - " << getLastErrorMessage();
+            return SetError(error.str());
         }
     }
 
@@ -648,23 +562,33 @@ class DiskCacheWorker : public AsyncWorker {
         HandleScope scope(Env());
     
         Object ret = Object::New(Env());
-        ret.Set("parametersSavable", Boolean::New(Env(), sDiskCacheInformation.parametersSavable));
-        ret.Set("readCacheEnabled", Boolean::New(Env(), sDiskCacheInformation.readCacheEnabled));
-        ret.Set("writeCacheEnabled", Boolean::New(Env(), sDiskCacheInformation.writeCacheEnabled));
-        ret.Set("prefetchScalar", Boolean::New(Env(), sDiskCacheInformation.prefetchScalar));
-        ret.Set("readRetentionPriority", sDiskCacheInformation.readRetentionPriority);
-        ret.Set("writeRetentionPriority", sDiskCacheInformation.writeRetentionPriority);
-        ret.Set("disablePrefetchTransferLength", sDiskCacheInformation.disablePrefetchTransferLength);
+        ret.Set("parametersSavable", Boolean::New(Env(), sDiskCacheInformation.ParametersSavable));
+        ret.Set("readCacheEnabled", Boolean::New(Env(), sDiskCacheInformation.ReadCacheEnabled));
+        ret.Set("writeCacheEnabled", Boolean::New(Env(), sDiskCacheInformation.WriteCacheEnabled));
+        ret.Set("prefetchScalar", Boolean::New(Env(), sDiskCacheInformation.PrefetchScalar));
+        switch(sDiskCacheInformation.ReadRetentionPriority) {
+            case EqualPriority:
+                ret.Set("readRetentionPriority", "EqualPriority");
+                break;
+            case KeepPrefetchedData:
+                ret.Set("readRetentionPriority", "KeepPrefetchedData");
+                break;
+            case KeepReadData:
+                ret.Set("readRetentionPriority", "KeepReadData");
+                break;
+        }
+        ret.Set("writeRetentionPriority", (double) sDiskCacheInformation.WriteRetentionPriority);
+        ret.Set("disablePrefetchTransferLength", sDiskCacheInformation.DisablePrefetchTransferLength);
         Object Block = Object::New(Env());
-        if (sDiskCacheInformation.prefetchScalar) {
-            Block.Set("minimum", sDiskCacheInformation.scalarPrefetch.minimum);
-            Block.Set("maximum", sDiskCacheInformation.scalarPrefetch.maximum);
-            Block.Set("maximumBlocks", sDiskCacheInformation.scalarPrefetch.maximumBlocks);
+        if (sDiskCacheInformation.PrefetchScalar) {
+            Block.Set("minimum", sDiskCacheInformation.ScalarPrefetch.Minimum);
+            Block.Set("maximum", sDiskCacheInformation.ScalarPrefetch.Maximum);
+            Block.Set("maximumBlocks", sDiskCacheInformation.ScalarPrefetch.MaximumBlocks);
             ret.Set("scalarPrefetch", Block);
         }
         else {
-            Block.Set("minimum", sDiskCacheInformation.blockPrefetch.minimum);
-            Block.Set("maximum", sDiskCacheInformation.blockPrefetch.maximum);
+            Block.Set("minimum", sDiskCacheInformation.BlockPrefetch.Minimum);
+            Block.Set("maximum", sDiskCacheInformation.BlockPrefetch.Maximum);
             ret.Set("blockPrefetch", Block);
         }
 
