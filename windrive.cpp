@@ -204,6 +204,7 @@ class DiskPerformanceWorker : public AsyncWorker {
         }
 
         DWORD junk = 0;
+        SecureZeroMemory(&sDiskPerformance, sizeof(DISK_PERFORMANCE));
         bool success = DeviceIoControl(
             hDevice,
             IOCTL_DISK_PERFORMANCE,
@@ -382,6 +383,7 @@ class DeviceGeometryWorker : public AsyncWorker {
         }
 
         DWORD junk = 0;
+        SecureZeroMemory(&sDeviceGeometry, sizeof(DISK_GEOMETRY_EX));
         bool bResult = DeviceIoControl(
             hDevice,
             IOCTL_DISK_GET_DRIVE_GEOMETRY_EX,
@@ -400,6 +402,8 @@ class DeviceGeometryWorker : public AsyncWorker {
         }
 
         // Retrieve Detection & Partition information
+        SecureZeroMemory(&diskDetect, sizeof(PDISK_DETECTION_INFO));
+        SecureZeroMemory(&diskPartition, sizeof(PDISK_PARTITION_INFO));
         diskDetect = DiskGeometryGetDetect(&sDeviceGeometry);
         diskPartition = DiskGeometryGetPartition(&sDeviceGeometry);
         CloseHandle(hDevice);
@@ -540,6 +544,7 @@ class DiskCacheWorker : public AsyncWorker {
         }
 
         DWORD junk = 0;
+        SecureZeroMemory(&sDiskCacheInformation, sizeof(DISK_CACHE_INFORMATION));
         bool bResult = DeviceIoControl(
             hDevice,
             IOCTL_DISK_GET_CACHE_INFORMATION,
