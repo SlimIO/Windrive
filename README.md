@@ -211,6 +211,10 @@ $ npx node-gyp configure
 $ npx node-gyp build
 ```
 
+## Known issues
+
+- Accès refusé sur le cache des disques (drives).
+
 ## Available commands
 
 All projects commands are described here:
