@@ -225,8 +225,3 @@ All projects commands are described here:
 | npm run report | Generate .HTML report of tests coverage |
 
 > the report command have to be triggered after the coverage command.
-
-## Roadmap 1.2.0
-
-- Push tests coverage to 100%
-- Add CPPLint to lint cpp files
