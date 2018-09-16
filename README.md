@@ -51,14 +51,14 @@ Retrieves the currently available disk drives. An array of LogicalDrive is retur
 ```ts
 type LogicalDriveType = "UNKNOWN" | "NO_ROOT_DIR" | "REMOVABLE" | "FIXED" | "REMOTE" | "CDROM" | "RAMDISK";
 
-interface LogicalDrive {
+export interface LogicalDrive {
     name: string;
-    bytesPerSect: number;
     type: LogicalDriveType;
-    freeClusters: number;
-    totalClusters: number;
-    usedClusterPourcent: number;
-    freeClusterPourcent: number;
+    bytesPerSect?: number;
+    freeClusters?: number;
+    totalClusters?: number;
+    usedClusterPourcent?: number;
+    freeClusterPourcent?: number;
 }
 ```
 
@@ -84,7 +84,7 @@ interface DosDevices {
     [name: string]: string;
 }
 ```
-allDrivePerformance
+
 For example, you can filter the result to retrieves Logical and **Physical** Drives information & performance:
 ```js
 const isDisk = /^[A-Za-z]{1}:{1}$/;
