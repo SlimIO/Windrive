@@ -21,8 +21,8 @@
     "branches": 90
   },
   "dependencies": {
-    "bindings": "^1.3.0",
-    "node-addon-api": "^1.6.0"
+    "node-addon-api": "^1.6.0",
+    "node-gyp-build": "^3.5.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^7.2.1",
@@ -38,12 +38,13 @@
     "jsdoc": "^3.5.5",
     "node-gyp": "^3.8.0",
     "nyc": "^13.1.0",
-    "pkg-ok": "^2.3.1"
+    "pkg-ok": "^2.3.1",
+    "prebuildify": "^2.9.1"
   },
   "scripts": {
-    "prepublish": "pkg-ok",
+    "prepublishOnly": "pkg-ok",
+    "prebuilds": "prebuildify --napi",
     "build": "cross-env node-gyp configure && node-gyp build",
-    "install": "node-gyp rebuild",
     "test": "ava --verbose",
     "doc": "jsdoc -c ./jsdoc.json -r",
     "coverage": "nyc ava",

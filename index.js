@@ -2,7 +2,7 @@
  * @namespace windrive
  * @desc Windows Drive (disk) & Devices - Node.JS low level binding
  */
-const windrive = require("./prebuilds/win32-x64/node-napi.node");
+const windrive = require("node-gyp-build")(__dirname);
 
 /**
  * @async
