@@ -1,6 +1,6 @@
 // Require Third-party dependencies
 const test = require("ava");
-const is = require("@sindresorhus/is");
+const is = require("@slimio/is");
 
 // Require package
 const windrive = require("../index");
