@@ -8,3 +8,4 @@ CONTRIBUTING.md
 build/
 .vscode/
 .vscode
+commitlint.config.js
