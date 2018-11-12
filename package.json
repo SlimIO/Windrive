@@ -16,11 +16,13 @@
     "@slimio/eslint-config": "^1.1.8",
     "@types/node": "^10.12.5",
     "ava": "^0.25.0",
+    "cross-env": "^5.2.0",
     "eslint": "^5.9.0",
     "node-gyp": "^3.8.0",
     "nyc": "^13.1.0"
   },
   "scripts": {
+    "build": "cross-env node-gyp configure && node-gyp build",
     "install": "node-gyp rebuild",
     "test": "ava --verbose",
     "doc": "jsdoc -c ./jsdoc.json -r",
