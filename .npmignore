@@ -1,6 +1,7 @@
 test/
 tests/
 coverage/
+build/
 .nyc_output/
 docs/
 jsdoc.json
