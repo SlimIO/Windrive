@@ -46,7 +46,7 @@
     "prebuilds": "prebuildify --napi",
     "build": "cross-env node-gyp configure && node-gyp build",
     "test": "ava --verbose",
-    "doc": "jsdoc -c ./jsdoc.json -r",
+    "doc": "jsdoc -c ./jsdoc.json -r -R ./README.md -P ./package.json --verbose",
     "coverage": "nyc ava",
     "report": "nyc report --reporter=html"
   },
