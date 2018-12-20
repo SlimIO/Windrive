@@ -54,7 +54,19 @@
     "type": "git",
     "url": "git+https://github.com/SlimIO/WinDisk.git"
   },
-  "keywords": [],
+  "keywords": [
+      "SlimIO",
+      "Drive",
+      "Disk",
+      "NAPI",
+      "Windows",
+      "LogicalDrive",
+      "Binding",
+      "Microsoft",
+      "Devices",
+      "DosDevices",
+      "FreeSpace"
+  ],
   "author": "SlimIO",
   "private": false,
   "license": "MIT",
