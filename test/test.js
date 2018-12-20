@@ -49,10 +49,9 @@ test("getDevicePerformance()", async function getDevicePerformance(assert) {
     assert.is(Reflect.has(windrive, "getDevicePerformance"), true);
 
     // Method should throw TypeError on non-string arg
-    const error = assert.throws(() => {
+    assert.throws(() => {
         windrive.getDevicePerformance(5);
-    }, TypeError);
-    assert.is(error.message, TYPE_ERROR);
+    }, { instanceOf: TypeError, message: TYPE_ERROR });
 
     const logicalDrives = await windrive.getLogicalDrives();
     assert.is(is.array(logicalDrives), true);
@@ -83,10 +82,9 @@ test("getDeviceGeometry()", async function getDevicePerformance(assert) {
     assert.is(Reflect.has(windrive, "getDeviceGeometry"), true);
 
     // Method should throw TypeError on non-string arg
-    const error = assert.throws(() => {
+    assert.throws(() => {
         windrive.getDeviceGeometry(5);
-    }, TypeError);
-    assert.is(error.message, TYPE_ERROR);
+    }, { instanceOf: TypeError, message: TYPE_ERROR });
 
     const logicalDrives = await windrive.getLogicalDrives();
     assert.is(is.array(logicalDrives), true);
