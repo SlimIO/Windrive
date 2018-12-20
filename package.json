@@ -31,7 +31,7 @@
     "@slimio/eslint-config": "^2.0.3",
     "@slimio/is": "^1.4.0",
     "@types/node": "^10.12.18",
-    "ava": "^0.25.0",
+    "ava": "^1.0.1",
     "cross-env": "^5.2.0",
     "eslint": "^5.10.0",
     "husky": "^1.3.0",
