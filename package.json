@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "node-addon-api": "^1.6.2",
-    "node-gyp-build": "^3.5.0"
+    "node-gyp-build": "^3.6.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^7.2.1",
