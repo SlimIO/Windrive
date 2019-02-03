@@ -3,7 +3,7 @@
 ![MIT](https://img.shields.io/github/license/mashape/apistatus.svg)
 ![V1.0](https://img.shields.io/badge/version-1.5.0-blue.svg)
 
-SlimIO Windrive is a NodeJS binding which expose low-level Microsoft APIs on Logical Drive, Disk and Devices.
+SlimIO Windrive is a Node.js binding which expose low-level Microsoft APIs on Logical Drive, Disk and Devices.
 
 This binding expose the following methods/struct:
 
@@ -203,7 +203,7 @@ Media type enumeration can be retrieved [here](https://msdn.microsoft.com/en-us/
 
 Before building the project, be sure to get the following npm package installed:
 
-- Install (or upgrade to) NodeJS v10+ and npm v6+
+- Install (or upgrade to) Node.js v10+ and npm v6+
 - [Windows build tools](https://www.npmjs.com/package/windows-build-tools)
 
 Then, just run normal npm install command:
