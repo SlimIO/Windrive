@@ -1,9 +1,11 @@
 # Windrive
 ![V1.5](https://img.shields.io/badge/version-1.5.0-blue.svg)
+![N-API](https://img.shields.io/badge/N--API-v3-green.svg)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/SlimIO/Windrive/commit-activity)
 ![MIT](https://img.shields.io/github/license/mashape/apistatus.svg)
 ![2DEP](https://img.shields.io/badge/Dependencies-2-yellow.svg)
 [![Known Vulnerabilities](https://snyk.io/test/github/SlimIO/Windrive/badge.svg?targetFile=package.json)](https://snyk.io/test/github/SlimIO/Windrive?targetFile=package.json)
+[![Build Status](https://travis-ci.com/SlimIO/Windrive.svg?branch=master)](https://travis-ci.com/SlimIO/Windrive)
 
 SlimIO Windrive is a Node.js binding which expose low-level Microsoft APIs on Logical Drive, Disk and Devices.
 
