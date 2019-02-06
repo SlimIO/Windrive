@@ -544,7 +544,6 @@ class DiskCacheWorker : public AsyncWorker {
         }
 
         DWORD junk = 0;
-        SecureZeroMemory(&sDiskCacheInformation, sizeof(DISK_CACHE_INFORMATION));
         bool bResult = DeviceIoControl(
             hDevice,
             IOCTL_DISK_GET_CACHE_INFORMATION,

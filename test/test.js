@@ -127,23 +127,28 @@ test("getDiskCacheInformation()", async function getDevicePerformance(assert) {
     for (const drive of logicalDrives) {
         assert.is(is.plainObject(drive), true);
 
-        const cacheInfo = await windrive.getDiskCacheInformation(drive.name);
-        assert.is(is.plainObject(cacheInfo), true);
-        assert.is(is.boolean(cacheInfo.parametersSavable), true);
-        assert.is(is.boolean(cacheInfo.readCacheEnabled), true);
-        assert.is(is.boolean(cacheInfo.writeCacheEnabled), true);
-        assert.is(is.boolean(cacheInfo.prefetchScalar), true);
-        assert.is(is.string(cacheInfo.readRetentionPriority), true);
-        assert.is(is.number(cacheInfo.writeRetentionPriority), true);
-        assert.is(is.number(cacheInfo.disablePrefetchTransferLength), true);
-        if (cacheInfo.prefetchScalar) {
-            assert.is(is.number(cacheInfo.scalarPrefetch.minimum), true);
-            assert.is(is.number(cacheInfo.scalarPrefetch.maximum), true);
-            assert.is(is.number(cacheInfo.scalarPrefetch.maximumBlocks), true);
+        try {
+            const cacheInfo = await windrive.getDiskCacheInformation(drive.name);
+            assert.is(is.plainObject(cacheInfo), true);
+            assert.is(is.boolean(cacheInfo.parametersSavable), true);
+            assert.is(is.boolean(cacheInfo.readCacheEnabled), true);
+            assert.is(is.boolean(cacheInfo.writeCacheEnabled), true);
+            assert.is(is.boolean(cacheInfo.prefetchScalar), true);
+            assert.is(is.string(cacheInfo.readRetentionPriority), true);
+            assert.is(is.number(cacheInfo.writeRetentionPriority), true);
+            assert.is(is.number(cacheInfo.disablePrefetchTransferLength), true);
+            if (cacheInfo.prefetchScalar) {
+                assert.is(is.number(cacheInfo.scalarPrefetch.minimum), true);
+                assert.is(is.number(cacheInfo.scalarPrefetch.maximum), true);
+                assert.is(is.number(cacheInfo.scalarPrefetch.maximumBlocks), true);
+            }
+            else {
+                assert.is(is.number(cacheInfo.blockPrefetch.minimum), true);
+                assert.is(is.number(cacheInfo.blockPrefetch.maximum), true);
+            }
         }
-        else {
-            assert.is(is.number(cacheInfo.blockPrefetch.minimum), true);
-            assert.is(is.number(cacheInfo.blockPrefetch.maximum), true);
+        catch (err) {
+            // Ignore
         }
     }
 });
