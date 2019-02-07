@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 // Require Third-party dependencies
 const test = require("ava");
 const is = require("@slimio/is");
@@ -7,6 +9,7 @@ const windrive = require("../index");
 
 // CONSTANTS
 const TYPE_ERROR = "driveName should be typeof string!";
+const RUN_ON_CI = process.env.RUN_ON_CI || "no";
 
 // Test method getLogicalDrives
 test("getLogicalDrives()", async function getLogicalDrives(assert) {
@@ -45,6 +48,9 @@ test("getDosDevices()", async function getDosDevices(assert) {
 
 // Test method getDevicePerformance
 test("getDevicePerformance()", async function getDevicePerformance(assert) {
+    if (RUN_ON_CI) {
+        return assert.pass();
+    }
     assert.is(Reflect.has(windrive, "getLogicalDrives"), true);
     assert.is(Reflect.has(windrive, "getDevicePerformance"), true);
 
@@ -74,6 +80,8 @@ test("getDevicePerformance()", async function getDevicePerformance(assert) {
         assert.is(is.number(perfPayload.storageDeviceNumber), true);
         assert.is(is.string(perfPayload.storageManagerName), true);
     }
+
+    return void 0;
 });
 
 // Test method getDeviceGeometry
