@@ -4,6 +4,7 @@
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/SlimIO/Windrive/commit-activity)
 ![MIT](https://img.shields.io/github/license/mashape/apistatus.svg)
 ![2DEP](https://img.shields.io/badge/Dependencies-2-yellow.svg)
+![size](https://img.shields.io/bundlephobia/min/@slimio/windrive.svg?style=flat)
 [![Known Vulnerabilities](https://snyk.io/test/github/SlimIO/Windrive/badge.svg?targetFile=package.json)](https://snyk.io/test/github/SlimIO/Windrive?targetFile=package.json)
 [![Build Status](https://travis-ci.com/SlimIO/Windrive.svg?branch=master)](https://travis-ci.com/SlimIO/Windrive)
 
