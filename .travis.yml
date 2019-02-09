@@ -3,13 +3,12 @@ os:
 language: node_js
 node_js:
     - "10"
+before_install:
+    - npm install -g node-gyp
 install:
-    - npm install
-    - npm run build
-after_success:
-  - wget https://raw.githubusercontent.com/DiscordHooks/travis-ci-discord-webhook/master/send.sh
-  - chmod +x send.sh
-  - ./send.sh success $WEBHOOK_URL
+    - npm ci --only=production
+    - node-gyp configure
+    - node-gyp build
 after_failure:
   - wget https://raw.githubusercontent.com/DiscordHooks/travis-ci-discord-webhook/master/send.sh
   - chmod +x send.sh
