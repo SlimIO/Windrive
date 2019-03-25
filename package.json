@@ -29,7 +29,6 @@
     "@escommunity/minami": "^1.0.0",
     "@slimio/eslint-config": "^2.0.3",
     "@slimio/is": "^1.4.0",
-    "@types/node": "^11.9.0",
     "ava": "^1.2.1",
     "cross-env": "^5.2.0",
     "dotenv": "^6.2.0",
