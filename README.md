@@ -53,8 +53,9 @@ main().catch(console.error);
 ```
 
 ## API
+<details><summary>getLogicalDrives(): Promise< LogicalDrive[] ></summary>
+<br />
 
-### getLogicalDrives(): Promise< LogicalDrive[] >
 Retrieves the currently available disk drives. An array of LogicalDrive is returned.
 
 ```ts
@@ -84,8 +85,11 @@ Possible drive types are:
 | RAMDISK | The drive is a RAM disk. |
 
 > CDROM Type have no FreeSpaces (only name and type are returned).
+</details>
 
-### getDosDevices(): Promise< DosDevices >
+<details><summary>getDosDevices(): Promise< DosDevices ></summary>
+<br />
+
 Retrieves information about MS-DOS device names. Return an key -> value Object where the key is the device name and value the path to the device.
 
 ```ts
@@ -112,8 +116,11 @@ async function main() {
 }
 main().catch(console.error);
 ```
+</details>
 
-### getDevicePerformance(deviceName: string): Promise< DevicePerformance >
+<details><summary>getDevicePerformance(deviceName: string): Promise< DevicePerformance ></summary>
+<br />
+
 Provides disk performance information about a given device (drive). Return a DevicePerformance Object.
 
 ```ts
@@ -132,8 +139,11 @@ interface DevicePerformance {
     storageManagerName: string;
 }
 ```
+</details>
 
-### getDiskCacheInformation(deviceName: string): Promise< DiskCacheInformation >
+<details><summary>getDiskCacheInformation(deviceName: string): Promise< DiskCacheInformation ></summary>
+<br />
+
 Provides information about the disk cache. Return a DiskCacheInformation Object.
 
 The result of the property `prefetchScalar` define which of scalarPrefetch (**true**) or blockPrefect (**false**) should be filled/completed.
@@ -158,8 +168,11 @@ interface DiskCacheInformation {
     };
 }
 ```
+</details>
 
-### getDeviceGeometry(deviceName: string): Promise< DeviceGeometry >
+<details><summary>getDeviceGeometry(deviceName: string): Promise< DeviceGeometry ></summary>
+<br />
+
 Describes the geometry of disk devices and media. Return a DeviceGeometry Object.
 
 ```ts
@@ -204,6 +217,7 @@ interface DeviceGeometry {
 ```
 
 Media type enumeration can be retrieved [here](https://msdn.microsoft.com/en-us/library/windows/desktop/aa365231(v=vs.85).aspx).
+</details>
 
 ## Contribution Guidelines
 To contribute to the project, please read the [code of conduct](https://github.com/SlimIO/Governance/blob/master/COC_POLICY.md) and the guide for [N-API compilation](https://github.com/SlimIO/Governance/blob/master/docs/native_addons.md).
