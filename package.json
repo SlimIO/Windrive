@@ -8,6 +8,7 @@
   },
   "husky": {
     "hooks": {
+      "pre-push": "cross-env eslint index.js && npm test",
       "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
     }
   },
@@ -29,6 +30,7 @@
     "@escommunity/minami": "^1.0.0",
     "@slimio/eslint-config": "^2.0.4",
     "@slimio/is": "^1.5.0",
+    "@slimio/psp": "^0.4.0",
     "ava": "^1.4.1",
     "cross-env": "^5.2.0",
     "dotenv": "^8.0.0",
@@ -44,7 +46,7 @@
     "prepublishOnly": "pkg-ok",
     "prebuilds": "prebuildify --napi",
     "build": "cross-env node-gyp configure && node-gyp build",
-    "test": "ava --verbose",
+    "test": "cross-env psp && ava --verbose",
     "doc": "jsdoc -c ./jsdoc.json -r -R ./README.md -P ./package.json --verbose",
     "coverage": "nyc npm test",
     "report": "nyc report --reporter=html"
