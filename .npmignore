@@ -17,3 +17,6 @@ commitlint.config.js
 .env
 .travis.yml
 CHANGELOG.md
+.vscode/
+*.exe
+*.obj
