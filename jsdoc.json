@@ -1,7 +1,7 @@
 {
     "opts": {
         "encoding": "utf8",
-        "destination": "./docs/",
+        "destination": "./jsdoc/",
         "recurse": true,
         "template": "node_modules/@escommunity/minami"
     },
