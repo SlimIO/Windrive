@@ -1,10 +1,10 @@
 # Windrive
-![V1.5](https://img.shields.io/badge/version-1.5.0-blue.svg)
+![version](https://img.shields.io/badge/dynamic/json.svg?url=https://raw.githubusercontent.com/SlimIO/Windrive/master/package.json?token=AOgWw3vrgQuu-U4fz1c7yYZyc7XJPNtrks5catjdwA%3D%3D&query=$.version&label=Version)
 ![N-API](https://img.shields.io/badge/N--API-v3-green.svg)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/SlimIO/Windrive/commit-activity)
 ![MIT](https://img.shields.io/github/license/mashape/apistatus.svg)
-![2DEP](https://img.shields.io/badge/Dependencies-2-yellow.svg)
-![size](https://img.shields.io/bundlephobia/min/@slimio/windrive.svg?style=flat)
+![dep](https://img.shields.io/david/SlimIO/Windrive.svg)
+![size](https://img.shields.io/bundlephobia/min/@slimio/windrive.svg)
 [![Known Vulnerabilities](https://snyk.io/test/github/SlimIO/Windrive/badge.svg?targetFile=package.json)](https://snyk.io/test/github/SlimIO/Windrive?targetFile=package.json)
 [![Build Status](https://travis-ci.com/SlimIO/Windrive.svg?branch=master)](https://travis-ci.com/SlimIO/Windrive) [![Greenkeeper badge](https://badges.greenkeeper.io/SlimIO/Windrive.svg)](https://greenkeeper.io/)
 
