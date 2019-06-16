@@ -1,3 +1,4 @@
 name = "windrive"
 version = "1.5.0"
+platform = "Windows"
 type = "NAPI"
