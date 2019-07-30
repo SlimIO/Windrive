@@ -68,6 +68,13 @@
     "DosDevices",
     "FreeSpace"
   ],
+  "files": [
+    "windrive.cpp",
+    "index.js",
+    "index.d.ts",
+    "binding.gyp",
+    "include/*.h"
+  ],
   "author": "SlimIO",
   "private": false,
   "license": "MIT",
