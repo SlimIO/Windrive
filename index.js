@@ -1,6 +1,8 @@
+"use strict";
+
 /**
  * @namespace windrive
- * @desc Windows Drive (disk) & Devices - Node.JS low level binding
+ * @description Windows Drive (disk) & Devices - Node.JS low level binding
  */
 const windrive = require("node-gyp-build")(__dirname);
 
@@ -8,8 +10,8 @@ const windrive = require("node-gyp-build")(__dirname);
  * @async
  * @function getLogicalDrives
  * @memberof windrive#
- * @desc Retrieves the currently available disk drives. An array of LogicalDrive is returned.
- * @return {Promise<Windrive.LogicalDrive[]>}
+ * @description Retrieves the currently available disk drives. An array of LogicalDrive is returned.
+ * @returns {Promise<Windrive.LogicalDrive[]>}
  *
  * @version 1.0.0
  * @example
@@ -36,9 +38,9 @@ function getLogicalDrives() {
  * @async
  * @function getDevicePerformance
  * @memberof windrive#
- * @desc Provides disk performance information about a given device (drive). Return a DevicePerformance Object.
- * @param {!String} driveName driveName
- * @return {Promise<Windrive.DevicePerformance>}
+ * @description Provides disk performance information about a given device (drive). Return a DevicePerformance Object.
+ * @param {!string} driveName driveName
+ * @returns {Promise<Windrive.DevicePerformance>}
  *
  * @throws {TypeError}
  *
@@ -77,8 +79,8 @@ function getDevicePerformance(driveName) {
  * @async
  * @function getDosDevices
  * @memberof windrive#
- * @desc Retrieves information about MS-DOS device names.
- * @return {Promise<Windrive.DosDevices>}
+ * @description Retrieves information about MS-DOS device names.
+ * @returns {Promise<Windrive.DosDevices>}
  *
  * @version 1.0.0
  * @example
@@ -105,9 +107,9 @@ function getDosDevices() {
  * @async
  * @function getDeviceGeometry
  * @memberof windrive#
- * @desc Describes the geometry of disk devices and media. Return a DeviceGeometry Object.
- * @param {!String} driveName driveName
- * @return {Promise<Windrive.DeviceGeometry>}
+ * @description Describes the geometry of disk devices and media. Return a DeviceGeometry Object.
+ * @param {!string} driveName driveName
+ * @returns {Promise<Windrive.DeviceGeometry>}
  *
  * @throws {TypeError}
  *
@@ -146,9 +148,9 @@ function getDeviceGeometry(driveName) {
  * @async
  * @function getDiskCacheInformation
  * @memberof windrive#
- * @desc Provides information about the disk cache. Return a DiskCacheInformation Object.
- * @param {!String} driveName driveName
- * @return {Promise<Windrive.DiskCacheInformation>}
+ * @description Provides information about the disk cache. Return a DiskCacheInformation Object.
+ * @param {!string} driveName driveName
+ * @returns {Promise<Windrive.DiskCacheInformation>}
  *
  * @throws {TypeError}
  */
