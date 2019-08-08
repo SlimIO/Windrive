@@ -22,7 +22,8 @@
   },
   "dependencies": {
     "node-addon-api": "^1.7.1",
-    "node-gyp-build": "^4.1.0"
+    "node-gyp-build": "^4.1.0",
+    "snyk": "^1.213.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^8.1.0",
@@ -49,7 +50,9 @@
     "test": "cross-env psp && ava --verbose",
     "doc": "jsdoc -c ./jsdoc.json -r -R ./README.md -P ./package.json --verbose",
     "coverage": "nyc npm test",
-    "report": "nyc report --reporter=html"
+    "report": "nyc report --reporter=html",
+    "snyk-protect": "snyk protect",
+    "prepare": "npm run snyk-protect"
   },
   "repository": {
     "type": "git",
@@ -82,5 +85,6 @@
   "bugs": {
     "url": "https://github.com/SlimIO/WinDisk/issues"
   },
-  "homepage": "https://github.com/SlimIO/WinDisk#readme"
+  "homepage": "https://github.com/SlimIO/WinDisk#readme",
+  "snyk": true
 }
