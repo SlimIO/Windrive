@@ -30,7 +30,7 @@
     "@escommunity/minami": "^1.0.0",
     "@slimio/eslint-config": "^3.0.2",
     "@slimio/is": "^1.5.1",
-    "@slimio/psp": "^0.6.0",
+    "@slimio/psp": "^0.7.0",
     "ava": "^2.2.0",
     "cross-env": "^5.2.0",
     "dotenv": "^8.0.0",
