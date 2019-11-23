@@ -4,7 +4,7 @@
   "description": "Windows Drive (disk) & Devices low level binding",
   "main": "index.js",
   "engines": {
-    "node": ">=10"
+    "node": ">=12"
   },
   "husky": {
     "hooks": {
