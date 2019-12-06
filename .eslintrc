@@ -1,6 +1,3 @@
 {
-    "extends": "@slimio/eslint-config",
-    "rules": {
-        "no-param-reassign": "off"
-    }
+    "extends": "@slimio/eslint-config"
 }
