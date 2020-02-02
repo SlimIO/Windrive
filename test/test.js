@@ -128,7 +128,7 @@ test("getDiskCacheInformation()", async function getDevicePerformance(assert) {
     // Method should throw TypeError on non-string arg
     const error = assert.throws(() => {
         windrive.getDiskCacheInformation(5);
-    }, TypeError);
+    }, { instanceOf: TypeError });
     assert.is(error.message, TYPE_ERROR);
 
     const logicalDrives = await windrive.getLogicalDrives();
