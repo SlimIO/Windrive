@@ -5,8 +5,6 @@
 #include "napi.h"
 #include "slimio.h"
 
-using namespace std;
-using namespace Napi;
 using namespace Slimio;
 
 /*
@@ -17,27 +15,27 @@ using namespace Slimio;
 
 /*
  * Asycnronous Worker to Retrieve Windows Logical Drives
- * 
+ *
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-getlogicaldrivestringsw
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-getdrivetypea
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-getdiskfreespacea
  */
-class LogicalDriveWorker : public AsyncWorker {
+class LogicalDriveWorker : public Napi::AsyncWorker {
     public:
-        LogicalDriveWorker(Function& callback) : AsyncWorker(callback) {}
+        LogicalDriveWorker(Napi::Function& callback) : AsyncWorker(callback) {}
         ~LogicalDriveWorker() {}
 
     private:
         struct LogicalDrive {
             TCHAR* name;
-            string driveType;
+            std::string driveType;
             DWORD bytesPerSect;
             DWORD freeClusters;
             DWORD totalClusters;
             double usedClusterPourcent;
             double freeClusterPourcent;
         };
-        vector<LogicalDrive> vLogicalDrives;
+        std::vector<LogicalDrive> vLogicalDrives;
 
     // This code will be executed on the worker thread
     void Execute() {
@@ -51,8 +49,8 @@ class LogicalDriveWorker : public AsyncWorker {
             return SetError("Unable to find any Logical Drive. GetLogicalDriveStrings() has returned 0 byte.");
         }
         else if (dwResult > DRIVER_BUFFER_BYTE_LENGTH) {
-            stringstream error;
-            error << "Insufficient buffer size (" << DRIVER_BUFFER_BYTE_LENGTH << "). GetLogicalDriveStrings() returned " << dwResult << " bytes!" << endl;
+            std::stringstream error;
+            error << "Insufficient buffer size (" << DRIVER_BUFFER_BYTE_LENGTH << "). GetLogicalDriveStrings() returned " << dwResult << " bytes!" << std::endl;
             return SetError(error.str());
         }
 
@@ -68,25 +66,25 @@ class LogicalDriveWorker : public AsyncWorker {
             driveType = GetDriveType(lpRootPathName);
             switch(driveType) {
                 case DRIVE_UNKNOWN:
-                    drive.driveType = string("UNKNOWN");
+                    drive.driveType = std::string("UNKNOWN");
                     break;
                 case DRIVE_NO_ROOT_DIR:
-                    drive.driveType = string("NO_ROOT_DIR");
+                    drive.driveType = std::string("NO_ROOT_DIR");
                     break;
                 case DRIVE_REMOVABLE:
-                    drive.driveType = string("REMOVABLE");
+                    drive.driveType = std::string("REMOVABLE");
                     break;
                 case DRIVE_FIXED:
-                    drive.driveType = string("FIXED");
+                    drive.driveType = std::string("FIXED");
                     break;
                 case DRIVE_REMOTE:
-                    drive.driveType = string("REMOTE");
+                    drive.driveType = std::string("REMOTE");
                     break;
                 case DRIVE_CDROM:
-                    drive.driveType = string("CDROM");
+                    drive.driveType = std::string("CDROM");
                     break;
                 case DRIVE_RAMDISK:
-                    drive.driveType = string("RAMDISK");
+                    drive.driveType = std::string("RAMDISK");
                     break;
             }
 
@@ -118,16 +116,16 @@ class LogicalDriveWorker : public AsyncWorker {
     }
 
     void OnOK() {
-        HandleScope scope(Env());
-        Array ret = Array::New(Env());
+        Napi::HandleScope scope(Env());
+        Napi::Array ret = Napi::Array::New(Env());
         for (size_t i = 0; i < vLogicalDrives.size(); ++i) {
             LogicalDrive currDrive = vLogicalDrives.at(i);
-            Object currJSDrive = Object::New(Env());
+            Napi::Object currJSDrive = Napi::Object::New(Env());
             ret[i] = currJSDrive;
 
             currJSDrive.Set("name", currDrive.name);
             currJSDrive.Set("type", currDrive.driveType);
-            if (currDrive.driveType != string("CDROM")) {
+            if (currDrive.driveType != std::string("CDROM")) {
                 currJSDrive.Set("bytesPerSect", currDrive.bytesPerSect);
                 currJSDrive.Set("freeClusters", currDrive.freeClusters);
                 currJSDrive.Set("totalClusters", currDrive.totalClusters);
@@ -143,23 +141,20 @@ class LogicalDriveWorker : public AsyncWorker {
 /*
  * Retrieve Windows Logical Drives (with Drive type & Free spaces).
  */
-Value getLogicalDrives(const CallbackInfo& info) {
-    const Env env = info.Env();
+Napi::Value getLogicalDrives(const Napi::CallbackInfo& info) {
+    const Napi::Env env = info.Env();
+    Napi::Function cb;
 
-    // Check argument length!
     if (info.Length() < 1) {
-        Error::New(env, "Wrong number of argument provided!").ThrowAsJavaScriptException();
+        Napi::Error::New(env, "Wrong number of argument provided!").ThrowAsJavaScriptException();
         return env.Null();
     }
-
-    // callback should be a Napi::Function
     if (!info[0].IsFunction()) {
-        Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
+        Napi::Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
         return env.Null();
     }
 
-    // Execute worker
-    Function cb = info[0].As<Function>();
+    cb = info[0].As<Napi::Function>();
     (new LogicalDriveWorker(cb))->Queue();
 
     return env.Undefined();
@@ -167,38 +162,38 @@ Value getLogicalDrives(const CallbackInfo& info) {
 
 /*
  * Retrieve Disk Performance Worker
- * 
+ *
  * Link to Microsoft documentation to understood how the code as been achieved:
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-createfilea
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/devio/calling-deviceiocontrol
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ni-winioctl-ioctl_disk_performance
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ns-winioctl-_disk_performance
- * 
+ *
  */
-class DiskPerformanceWorker : public AsyncWorker {
+class DiskPerformanceWorker : public Napi::AsyncWorker {
     public:
-        DiskPerformanceWorker(Function& callback, string driveName) : AsyncWorker(callback), driveName(driveName) {}
+        DiskPerformanceWorker(Napi::Function& callback, std::string driveName) : AsyncWorker(callback), driveName(driveName) {}
         ~DiskPerformanceWorker() {}
 
     private:
-        string driveName;
+        std::string driveName;
         DISK_PERFORMANCE sDiskPerformance = { 0 };
 
     // This code will be executed on the worker thread
     void Execute() {
-        stringstream ss;
+        std::stringstream ss;
         ss << "\\\\.\\" << driveName; // Concat these weird carac (they are required to work).
-        string tDriveName = ss.str();
+        std::string tDriveName = ss.str();
         LPCSTR wDriveName = tDriveName.c_str();
 
         // Open device handle!
         HANDLE hDevice = CreateFileA(
             wDriveName, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL
-        );              
+        );
 
         // Cannot open the drive
         if (hDevice == INVALID_HANDLE_VALUE) {
-            stringstream error;
+            std::stringstream error;
             error << "CreateFileA() INVALID_HANDLE_VALUE for device " << driveName << " - " << getLastErrorMessage();
             return SetError(error.str());
         }
@@ -217,20 +212,20 @@ class DiskPerformanceWorker : public AsyncWorker {
         );
         CloseHandle(hDevice);
         if (!success) {
-            stringstream error;
+            std::stringstream error;
             error << "IOCTL_DISK_PERFORMANCE failed with code (" << GetLastError() << ") - " << getLastErrorMessage();
             return SetError(error.str());
         }
     }
 
     void OnOK() {
-        HandleScope scope(Env());
+        Napi::HandleScope scope(Env());
+        Napi::Object ret = Napi::Object::New(Env());
 
         // Transform WCHAR to _bstr_t (to be translated into a const char*)
         // @header: comdef.h
         _bstr_t charStorageManagerName(sDiskPerformance.StorageManagerName);
 
-        Object ret = Object::New(Env());
         ret.Set("bytesRead", sDiskPerformance.BytesRead.QuadPart);
         ret.Set("bytesWritten", sDiskPerformance.BytesRead.QuadPart);
         ret.Set("readTime", sDiskPerformance.ReadTime.QuadPart);
@@ -252,24 +247,22 @@ class DiskPerformanceWorker : public AsyncWorker {
 /*
  * Binding for retrieving drive performance
  */
-Value getDevicePerformance(const CallbackInfo& info) {
-    const Env env = info.Env();
+Napi::Value getDevicePerformance(const Napi::CallbackInfo& info) {
+    const Napi::Env env = info.Env();
+    std::string driveName;
+    Napi::Function cb;
 
-    // Check argument length!
     if (info.Length() < 2) {
-        Error::New(env, "Wrong number of argument provided!").ThrowAsJavaScriptException();
+        Napi::Error::New(env, "Wrong number of argument provided!").ThrowAsJavaScriptException();
         return env.Null();
     }
-
-    // callback should be typeof Napi::String
     if (!info[1].IsFunction()) {
-        Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
+        Napi::Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
         return env.Null();
     }
 
-    // Execute worker thread!
-    string driveName = info[0].As<String>().Utf8Value();
-    Function cb = info[1].As<Function>();
+    driveName = info[0].As<Napi::String>().Utf8Value();
+    cb = info[1].As<Napi::Function>();
     (new DiskPerformanceWorker(cb, driveName))->Queue();
 
     return env.Undefined();
@@ -277,16 +270,16 @@ Value getDevicePerformance(const CallbackInfo& info) {
 
 /*
  * Retrieve Dos Devices Worker
- * 
+ *
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/winbase/nf-winbase-querydosdevicea
  */
-class DosDevicesWorker : public AsyncWorker {
+class DosDevicesWorker : public Napi::AsyncWorker {
     public:
-        DosDevicesWorker(Function& callback) : AsyncWorker(callback) {}
+        DosDevicesWorker(Napi::Function& callback) : AsyncWorker(callback) {}
         ~DosDevicesWorker() {}
 
     private:
-        vector<pair<char*, char*>> vDosDevices;
+        std::vector<std::pair<char*, char*>> vDosDevices;
 
     // This code will be executed on the worker thread
     void Execute() {
@@ -305,16 +298,16 @@ class DosDevicesWorker : public AsyncWorker {
             if (ret == 0) {
                 continue;
             }
-            vDosDevices.push_back(make_pair(pos, logical));
-        }    
+            vDosDevices.push_back(std::make_pair(pos, logical));
+        }
     }
 
     void OnOK() {
-        HandleScope scope(Env());
+        Napi::HandleScope scope(Env());
+        Napi::Object ret = Napi::Object::New(Env());
 
-        Object ret = Object::New(Env());
         for (size_t i = 0; i < vDosDevices.size(); ++i) {
-            pair<char*, char*> device = vDosDevices.at(i);
+            std::pair<char*, char*> device = vDosDevices.at(i);
             ret.Set(device.first, device.second);
         }
 
@@ -326,23 +319,20 @@ class DosDevicesWorker : public AsyncWorker {
 /*
  * Retrieve Dos Devices
  */
-Value getDosDevices(const CallbackInfo& info) {
-    const Env env = info.Env();
+Napi::Value getDosDevices(const Napi::CallbackInfo& info) {
+    const Napi::Env env = info.Env();
+    Napi::Function cb;
 
-    // Check argument length!
     if (info.Length() < 1) {
-        Error::New(env, "Wrong number of argument provided!").ThrowAsJavaScriptException();
+        Napi::Error::New(env, "Wrong number of argument provided!").ThrowAsJavaScriptException();
         return env.Null();
     }
-
-    // callback should be a Napi::Function
     if (!info[0].IsFunction()) {
-        Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
+        Napi::Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
         return env.Null();
     }
 
-    // Execute worker thread!
-    Function cb = info[0].As<Function>();
+    cb = info[0].As<Napi::Function>();
     (new DosDevicesWorker(cb))->Queue();
 
     return env.Undefined();
@@ -350,34 +340,34 @@ Value getDosDevices(const CallbackInfo& info) {
 
 /*
  * Device Geometry Worker
- * 
+ *
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ns-winioctl-_disk_geometry
  */
-class DeviceGeometryWorker : public AsyncWorker {
+class DeviceGeometryWorker : public Napi::AsyncWorker {
     public:
-        DeviceGeometryWorker(Function& callback, string driveName) : AsyncWorker(callback), driveName(driveName) {}
+        DeviceGeometryWorker(Napi::Function& callback, std::string driveName) : AsyncWorker(callback), driveName(driveName) {}
         ~DeviceGeometryWorker() {}
 
     private:
-        string driveName;
+        std::string driveName;
         DISK_GEOMETRY_EX sDeviceGeometry = { 0 };
         PDISK_DETECTION_INFO diskDetect;
         PDISK_PARTITION_INFO diskPartition;
 
     // This code will be executed on the worker thread
     void Execute() {
-        stringstream ss;
+        std::stringstream ss;
         ss << "\\\\.\\" << driveName; // Concat these weird carac (they are required to work).
-        string tDriveName = ss.str();
+        std::string tDriveName = ss.str();
         LPCSTR wszDrive = tDriveName.c_str();
 
         HANDLE hDevice = CreateFileA(
             wszDrive, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL
-        );              
+        );
 
         // cannot open the drive
         if (hDevice == INVALID_HANDLE_VALUE) {
-            stringstream error;
+            std::stringstream error;
             error << "CreateFileA() INVALID_HANDLE_VALUE for device " << driveName << " - " << getLastErrorMessage();
             return SetError(error.str());
         }
@@ -396,7 +386,7 @@ class DeviceGeometryWorker : public AsyncWorker {
         );
         if (!bResult) {
             CloseHandle(hDevice);
-            stringstream error;
+            std::stringstream error;
             error << "IOCTL_DISK_GET_DRIVE_GEOMETRY_EX failed with code (" << GetLastError() << ") - " << getLastErrorMessage();
             return SetError(error.str());
         }
@@ -410,9 +400,9 @@ class DeviceGeometryWorker : public AsyncWorker {
     }
 
     void OnOK() {
-        HandleScope scope(Env());
+        Napi::HandleScope scope(Env());
 
-        Object ret = Object::New(Env());
+        Napi::Object ret = Napi::Object::New(Env());
         ret.Set("diskSize", sDeviceGeometry.DiskSize.QuadPart);
         ret.Set("mediaType", (double) sDeviceGeometry.Geometry.MediaType);
         ret.Set("cylinders", sDeviceGeometry.Geometry.Cylinders.QuadPart);
@@ -421,7 +411,7 @@ class DeviceGeometryWorker : public AsyncWorker {
         ret.Set("tracksPerCylinder", sDeviceGeometry.Geometry.TracksPerCylinder);
 
         // Partition
-        Object partition = Object::New(Env());
+        Napi::Object partition = Napi::Object::New(Env());
         partition.Set("diskId", guidToString(diskPartition->Gpt.DiskId));
         partition.Set("size", diskPartition->SizeOfPartitionInfo);
         switch(diskPartition->PartitionStyle) {
@@ -435,14 +425,14 @@ class DeviceGeometryWorker : public AsyncWorker {
                 partition.Set("style", "RAW");
                 break;
         }
-        Object mbr = Object::New(Env());
+        Napi::Object mbr = Napi::Object::New(Env());
         mbr.Set("signature", diskPartition->Mbr.Signature);
         mbr.Set("checksum", diskPartition->Mbr.CheckSum);
         partition.Set("mbr", mbr);
         ret.Set("partition", partition);
 
         // Detection Info
-        Object detection = Object::New(Env());
+        Napi::Object detection = Napi::Object::New(Env());
         detection.Set("size", diskDetect->SizeOfDetectInfo);
 
         switch(diskDetect->DetectionType) {
@@ -457,7 +447,7 @@ class DeviceGeometryWorker : public AsyncWorker {
                 break;
         }
         if (diskDetect->DetectionType == DetectInt13) {
-            Object int13 = Object::New(Env());
+            Napi::Object int13 = Napi::Object::New(Env());
             int13.Set("driveSelect", diskDetect->Int13.DriveSelect);
             int13.Set("maxCylinders", diskDetect->Int13.MaxCylinders);
             int13.Set("sectorsPerTrack", diskDetect->Int13.SectorsPerTrack);
@@ -466,7 +456,7 @@ class DeviceGeometryWorker : public AsyncWorker {
             detection.Set("int13", int13);
         }
         else if (diskDetect->DetectionType == DetectExInt13) {
-            Object ExInt13 = Object::New(Env());
+            Napi::Object ExInt13 = Napi::Object::New(Env());
             ExInt13.Set("bufferSize", diskDetect->ExInt13.ExBufferSize);
             ExInt13.Set("flags", diskDetect->ExInt13.ExFlags);
             ExInt13.Set("cylinders", diskDetect->ExInt13.ExCylinders);
@@ -487,24 +477,22 @@ class DeviceGeometryWorker : public AsyncWorker {
 /*
  * Retrieve Device (Disk) Geometry
  */
-Value getDeviceGeometry(const CallbackInfo& info) {
-    const Env env = info.Env();
+Napi::Value getDeviceGeometry(const Napi::CallbackInfo& info) {
+    const Napi::Env env = info.Env();
+    std::string driveName;
+    Napi::Function cb;
 
-    // Check argument length!
     if (info.Length() < 2) {
-        Error::New(env, "Wrong number of argument provided!").ThrowAsJavaScriptException();
+        Napi::Error::New(env, "Wrong number of argument provided!").ThrowAsJavaScriptException();
         return env.Null();
     }
-
-    // callback should be a Napi::Function
     if (!info[1].IsFunction()) {
-        Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
+        Napi::Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
         return env.Null();
     }
 
-    // Execute worker thread!
-    string driveName = info[0].As<String>().Utf8Value();
-    Function cb = info[1].As<Function>();
+    driveName = info[0].As<Napi::String>().Utf8Value();
+    cb = info[1].As<Napi::Function>();
     (new DeviceGeometryWorker(cb, driveName))->Queue();
 
     return env.Undefined();
@@ -513,32 +501,32 @@ Value getDeviceGeometry(const CallbackInfo& info) {
 
 /*
  * Disk Cache Worker
- * 
+ *
  * @doc: https://docs.microsoft.com/en-us/windows/desktop/api/winioctl/ns-winioctl-_disk_cache_information
  */
-class DiskCacheWorker : public AsyncWorker {
+class DiskCacheWorker : public Napi::AsyncWorker {
     public:
-        DiskCacheWorker(Function& callback, string driveName) : AsyncWorker(callback), driveName(driveName) {}
+        DiskCacheWorker(Napi::Function& callback, std::string driveName) : AsyncWorker(callback), driveName(driveName) {}
         ~DiskCacheWorker() {}
 
     private:
-        string driveName;
+        std::string driveName;
         DISK_CACHE_INFORMATION sDiskCacheInformation = { 0 };
 
     // This code will be executed on the worker thread
     void Execute() {
-        stringstream ss;
+        std::stringstream ss;
         ss << "\\\\.\\" << driveName; // Concat these weird carac (they are required to work).
-        string tDriveName = ss.str();
+        std::string tDriveName = ss.str();
         LPCSTR wszDrive = tDriveName.c_str();
 
         HANDLE hDevice = CreateFileA(
             wszDrive, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL
-        );              
+        );
 
         // cannot open the drive
         if (hDevice == INVALID_HANDLE_VALUE) {
-            stringstream error;
+            std::stringstream error;
             error << "CreateFileA() INVALID_HANDLE_VALUE for device " << driveName << " - " << getLastErrorMessage();
             return SetError(error.str());
         }
@@ -556,20 +544,20 @@ class DiskCacheWorker : public AsyncWorker {
         );
         CloseHandle(hDevice);
         if (!bResult) {
-            stringstream error;
+            std::stringstream error;
             error << "IOCTL_DISK_GET_CACHE_INFORMATION failed with code (" << GetLastError() << ") - " << getLastErrorMessage();
             return SetError(error.str());
         }
     }
 
     void OnOK() {
-        HandleScope scope(Env());
-    
-        Object ret = Object::New(Env());
-        ret.Set("parametersSavable", Boolean::New(Env(), sDiskCacheInformation.ParametersSavable));
-        ret.Set("readCacheEnabled", Boolean::New(Env(), sDiskCacheInformation.ReadCacheEnabled));
-        ret.Set("writeCacheEnabled", Boolean::New(Env(), sDiskCacheInformation.WriteCacheEnabled));
-        ret.Set("prefetchScalar", Boolean::New(Env(), sDiskCacheInformation.PrefetchScalar));
+        Napi::HandleScope scope(Env());
+        Napi::Object ret = Napi::Object::New(Env());
+
+        ret.Set("parametersSavable", Napi::Boolean::New(Env(), sDiskCacheInformation.ParametersSavable));
+        ret.Set("readCacheEnabled", Napi::Boolean::New(Env(), sDiskCacheInformation.ReadCacheEnabled));
+        ret.Set("writeCacheEnabled", Napi::Boolean::New(Env(), sDiskCacheInformation.WriteCacheEnabled));
+        ret.Set("prefetchScalar", Napi::Boolean::New(Env(), sDiskCacheInformation.PrefetchScalar));
         switch(sDiskCacheInformation.ReadRetentionPriority) {
             case EqualPriority:
                 ret.Set("readRetentionPriority", "EqualPriority");
@@ -583,7 +571,7 @@ class DiskCacheWorker : public AsyncWorker {
         }
         ret.Set("writeRetentionPriority", (double) sDiskCacheInformation.WriteRetentionPriority);
         ret.Set("disablePrefetchTransferLength", sDiskCacheInformation.DisablePrefetchTransferLength);
-        Object Block = Object::New(Env());
+        Napi::Object Block = Napi::Object::New(Env());
         if (sDiskCacheInformation.PrefetchScalar) {
             Block.Set("minimum", sDiskCacheInformation.ScalarPrefetch.Minimum);
             Block.Set("maximum", sDiskCacheInformation.ScalarPrefetch.Maximum);
@@ -604,41 +592,35 @@ class DiskCacheWorker : public AsyncWorker {
 /*
  * Retrieve Disk Cache information
  */
-Value getDiskCacheInformation(const CallbackInfo& info) {
-    const Env env = info.Env();
+Napi::Value getDiskCacheInformation(const Napi::CallbackInfo& info) {
+    const Napi::Env env = info.Env();
+    std::string driveName;
+    Napi::Function cb;
 
-    // Check argument length!
     if (info.Length() < 2) {
-        Error::New(env, "Wrong number of argument provided!").ThrowAsJavaScriptException();
+        Napi::Error::New(env, "Wrong number of argument provided!").ThrowAsJavaScriptException();
         return env.Null();
     }
-
-    // callback should be a Napi::Function
     if (!info[1].IsFunction()) {
-        Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
+        Napi::Error::New(env, "argument callback should be a Function!").ThrowAsJavaScriptException();
         return env.Null();
     }
 
-    // Execute worker thread!
-    string driveName = info[0].As<String>().Utf8Value();
-    Function cb = info[1].As<Function>();
+    driveName = info[0].As<Napi::String>().Utf8Value();
+    cb = info[1].As<Napi::Function>();
     (new DiskCacheWorker(cb, driveName))->Queue();
 
     return env.Undefined();
 }
 
-// Initialize Native Addon
-Object Init(Env env, Object exports) {
-
-    // Exports addon methods!
-    exports.Set("getLogicalDrives", Function::New(env, getLogicalDrives));
-    exports.Set("getDevicePerformance", Function::New(env, getDevicePerformance));
-    exports.Set("getDeviceGeometry", Function::New(env, getDeviceGeometry));
-    exports.Set("getDosDevices", Function::New(env, getDosDevices));
-    exports.Set("getDiskCacheInformation", Function::New(env, getDiskCacheInformation));
+Napi::Object Init(Napi::Env env, Napi::Object exports) {
+    exports.Set("getLogicalDrives", Napi::Function::New(env, getLogicalDrives));
+    exports.Set("getDevicePerformance", Napi::Function::New(env, getDevicePerformance));
+    exports.Set("getDeviceGeometry", Napi::Function::New(env, getDeviceGeometry));
+    exports.Set("getDosDevices", Napi::Function::New(env, getDosDevices));
+    exports.Set("getDiskCacheInformation", Napi::Function::New(env, getDiskCacheInformation));
 
     return exports;
 }
 
-// Export Addon as windrive
 NODE_API_MODULE(windrive, Init)
